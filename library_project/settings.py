@@ -108,8 +108,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # WhiteNoise for static files in production
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 # ==================== AUTHENTICATION ====================
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
