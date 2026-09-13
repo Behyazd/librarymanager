@@ -1,0 +1,64 @@
+{% extends 'library/base.html' %}
+
+{% block title %}لیست کتاب‌ها{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="search-bar">
+        <form method="get" style="display: flex; gap: 8px; width: 100%;">
+            <input type="text" name="q" placeholder="جستجوی کتاب بر اساس عنوان، نویسنده یا شابک..." value="{{ query|default:'' }}">
+            <button type="submit" class="btn btn-primary">🔍 جستجو</button>
+            <a href="{% url 'library:book_add' %}" class="btn btn-ghost">➕ افزودن کتاب</a>
+            <a href="{% url 'library:book_search' %}" class="btn btn-ghost">🌐 جستجوی آنلاین</a>
+        </form>
+    </div>
+
+    {% if books %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>عنوان</th>
+                    <th>نویسنده</th>
+                    <th>شابک</th>
+                    <th>موجودی</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for book in books %}
+                <tr>
+                    <td>
+                        <a href="{% url 'library:book_detail' book.pk %}" style="text-decoration: none; color: var(--accent-600); font-weight: 600;">
+                            {{ book.title }}
+                        </a>
+                        {% if book.subtitle %}
+                        <br><small style="color: var(--text-muted);">{{ book.subtitle }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ book.author }}</td>
+                    <td><code style="background: var(--neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem;">{{ book.isbn|default:'—' }}</code></td>
+                    <td>
+                        {% with available=book.available_copies %}
+                        <span class="badge {% if available > 0 %}badge-ok{% else %}badge-danger{% endif %}">
+                            {{ available }} از {{ book.total_copies }}
+                        </span>
+                        {% endwith %}
+                    </td>
+                    <td>
+                        <a href="{% url 'library:book_detail' book.pk %}" class="btn btn-ghost" style="padding: 2px 12px; font-size: 0.85rem;">📖 جزئیات</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 12px;">📭</div>
+        <p style="font-size: 1.1rem;">کتابی یافت نشد.</p>
+        <p style="font-size: 0.95rem;">می‌توانید از طریق <a href="{% url 'library:book_search' %}" style="color: var(--accent-500);">جستجوی آنلاین</a> کتاب جدید اضافه کنید.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

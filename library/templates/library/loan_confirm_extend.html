@@ -1,0 +1,39 @@
+{% extends 'library/base.html' %}
+
+{% block title %}تمدید امانت{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 500px; margin: 0 auto;">
+    <h2 style="margin: 0 0 8px 0;">🔄 تمدید امانت</h2>
+    <p style="color: var(--text-muted); margin-bottom: 16px;">
+        کتاب: <strong>{{ loan.book.title }}</strong><br>
+        عضو: <strong>{{ loan.member.full_name }}</strong><br>
+        تاریخ بازگشت فعلی: <strong>{{ loan.due_date|date:"Y/m/d" }}</strong>
+        {% if loan.is_overdue %}
+        <span class="badge badge-danger">⏰ {{ loan.days_overdue }} روز تأخیر</span>
+        {% endif %}
+    </p>
+
+    {% if loan.can_renew %}
+    <div style="background: oklch(94% 0.06 155); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; border-right: 4px solid var(--success);">
+        <p style="margin: 0; color: oklch(28% 0.14 155);">
+            ✅ امکان تمدید وجود دارد. ({{ loan.renewal_count }} از {{ loan.max_renewals }} بار تمدید شده)
+        </p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary">🔄 تمدید (۱۴ روز)</button>
+            <a href="{% url 'library:member_detail' loan.member.pk %}" class="btn btn-ghost">← انصراف</a>
+        </div>
+    </form>
+    {% else %}
+    <div style="background: oklch(94% 0.06 25); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; border-right: 4px solid var(--danger);">
+        <p style="margin: 0; color: oklch(30% 0.18 25);">
+            ❌ امکان تمدید وجود ندارد. (حداکثر تمدید مجاز: {{ loan.max_renewals }} بار)
+        </p>
+    </div>
+    <a href="{% url 'library:member_detail' loan.member.pk %}" class="btn btn-ghost">← بازگشت</a>
+    {% endif %}
+</div>
+{% endblock %}

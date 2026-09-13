@@ -1,0 +1,32 @@
+{% extends 'library/base.html' %}
+
+{% block title %}ورود به سیستم{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 40px auto;">
+    <h2 style="text-align: center; margin-bottom: 20px;">🔐 ورود به کتابخانه</h2>
+    
+    {% if form.errors %}
+    <div style="background: #fee; color: #c00; padding: 10px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
+        نام کاربری یا رمز عبور اشتباه است.
+    </div>
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin-bottom: 12px;">
+            <label for="username" style="display: block; font-weight: 600; margin-bottom: 4px;">نام کاربری</label>
+            <input type="text" name="username" id="username" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem;">
+        </div>
+        <div style="margin-bottom: 16px;">
+            <label for="password" style="display: block; font-weight: 600; margin-bottom: 4px;">رمز عبور</label>
+            <input type="password" name="password" id="password" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem;">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">ورود</button>
+    </form>
+    
+    <p style="text-align: center; margin-top: 16px; color: var(--text-muted); font-size: 0.9rem;">
+        برای دسترسی به پنل مدیریت، وارد شوید.
+    </p>
+</div>
+{% endblock %}

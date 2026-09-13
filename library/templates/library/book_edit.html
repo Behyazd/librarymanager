@@ -1,0 +1,49 @@
+{% extends 'library/base.html' %}
+
+{% block title %}ویرایش کتاب{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 8px 0;">✏️ ویرایش کتاب</h2>
+    <p style="color: var(--text-muted); margin-bottom: 16px;">
+        در حال ویرایش: <strong>{{ book.title }}</strong>
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+                <label for="title" style="display: block; font-weight: 600; margin-bottom: 4px;">عنوان *</label>
+                <input type="text" id="title" name="title" required value="{{ book.title }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="author" style="display: block; font-weight: 600; margin-bottom: 4px;">پدیدآور</label>
+                <input type="text" id="author" name="author" value="{{ book.author|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="publisher" style="display: block; font-weight: 600; margin-bottom: 4px;">ناشر</label>
+                <input type="text" id="publisher" name="publisher" value="{{ book.publisher|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="publish_year" style="display: block; font-weight: 600; margin-bottom: 4px;">سال نشر</label>
+                <input type="text" id="publish_year" name="publish_year" value="{{ book.publish_year|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="isbn" style="display: block; font-weight: 600; margin-bottom: 4px;">شابک</label>
+                <input type="text" id="isbn" name="isbn" value="{{ book.isbn|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                <small style="color: var(--text-muted);">شابک باید یکتا باشد. اگر خالی بگذارید، ثبت نمی‌شود.</small>
+            </div>
+            <div>
+                <label for="total_copies" style="display: block; font-weight: 600; margin-bottom: 4px;">تعداد کل نسخه‌ها</label>
+                <input type="number" id="total_copies" name="total_copies" value="{{ book.total_copies }}" min="1" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <button type="submit" class="btn btn-primary">💾 ذخیره تغییرات</button>
+            <a href="{% url 'library:book_detail' book.pk %}" class="btn btn-ghost">← انصراف</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

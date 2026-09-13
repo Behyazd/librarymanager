@@ -1,0 +1,21 @@
+{% extends 'library/base.html' %}
+
+{% block title %}تأیید بازگشت کتاب{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 500px; margin: 0 auto;">
+    <h2 style="margin: 0 0 8px 0;">✅ تأیید بازگشت کتاب</h2>
+    <p style="color: var(--text-muted); margin-bottom: 16px;">
+        آیا از بازگشت کتاب <strong>{{ loan.book.title }}</strong> توسط 
+        <strong>{{ loan.member.full_name }}</strong> مطمئن هستید؟
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary">✅ بله، بازگشت داده شد</button>
+            <a href="{% url 'library:book_detail' loan.book.pk %}" class="btn btn-ghost">← انصراف</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

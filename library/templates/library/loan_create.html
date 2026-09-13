@@ -1,0 +1,32 @@
+{% extends 'library/base.html' %}
+
+{% block title %}ثبت امانت{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 8px 0;">📖 ثبت امانت جدید</h2>
+    <p style="color: var(--text-muted); margin-bottom: 16px;">
+        کتاب: <strong>{{ book.title }}</strong> — {{ book.author }}
+        <span class="badge badge-ok" style="margin-right: 8px;">موجود: {{ book.available_copies }}</span>
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin-bottom: 16px;">
+            <label for="member_id" style="display: block; font-weight: 600; margin-bottom: 4px;">انتخاب عضو</label>
+            <select name="member_id" id="member_id" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                <option value="">— انتخاب کنید —</option>
+                {% for member in members %}
+                <option value="{{ member.pk }}">{{ member.full_name }} ({{ member.member_code }})</option>
+                {% endfor %}
+            </select>
+            <small style="color: var(--text-muted);">فقط اعضای فعال نمایش داده می‌شوند.</small>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary">✅ ثبت امانت</button>
+            <a href="{% url 'library:book_detail' book.pk %}" class="btn btn-ghost">← انصراف</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

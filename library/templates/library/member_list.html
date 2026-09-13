@@ -1,0 +1,70 @@
+{% extends 'library/base.html' %}
+
+{% block title %}لیست اعضای کتابخانه{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+        <h2 style="margin: 0;">👥 اعضای کتابخانه</h2>
+        <a href="/admin/library/member/add/" class="btn btn-primary">➕ عضو جدید</a>
+    </div>
+
+    <div class="search-bar">
+        <form method="get" style="display: flex; gap: 8px; width: 100%;">
+            <input type="text" name="q" placeholder="جستجوی عضو بر اساس نام، کد ملی یا تلفن..." value="{{ query|default:'' }}">
+            <button type="submit" class="btn btn-primary">🔍 جستجو</button>
+        </form>
+    </div>
+
+    {% if members %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>نام کامل</th>
+                    <th>کد عضویت</th>
+                    <th>تلفن</th>
+                    <th>وضعیت</th>
+                    <th>امانت فعال</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in members %}
+                <tr>
+                    <td>
+                        <a href="{% url 'library:member_detail' member.pk %}" style="text-decoration: none; color: var(--accent-600); font-weight: 600;">
+                            {{ member.full_name }}
+                        </a>
+                    </td>
+                    <td><code style="background: var(--neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem;">{{ member.member_code }}</code></td>
+                    <td>{{ member.phone|default:'—' }}</td>
+                    <td>
+                        <span class="badge {% if member.is_active %}badge-ok{% else %}badge-danger{% endif %}">
+                            {% if member.is_active %}✅ فعال{% else %}❌ غیرفعال{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        {% with count=member.active_loans_count %}
+                        <span class="badge {% if count > 0 %}badge-warn{% else %}badge-ok{% endif %}">
+                            {{ count }}
+                        </span>
+                        {% endwith %}
+                    </td>
+                    <td>
+                        <a href="{% url 'library:member_detail' member.pk %}" class="btn btn-ghost" style="padding: 2px 12px; font-size: 0.85rem;">📋 جزئیات</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 12px;">👤</div>
+        <p style="font-size: 1.1rem;">هیچ عضوی یافت نشد.</p>
+        <p style="font-size: 0.95rem;">از طریق <a href="/admin/library/member/add/" style="color: var(--accent-500);">پنل مدیریت</a> عضو جدید اضافه کنید.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

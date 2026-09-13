@@ -1,0 +1,69 @@
+{% extends 'library/base.html' %}
+
+{% block title %}جستجوی آنلاین کتاب{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 8px 0;">🌐 جستجوی آنلاین کتاب</h2>
+    <p style="color: var(--text-muted); margin-bottom: 16px;">جستجو در کتابخانه ملی و افزودن مستقیم به سیستم</p>
+
+    <div class="search-bar">
+        <form method="get" style="display: flex; gap: 8px; width: 100%;">
+            <input type="text" name="q" placeholder="عنوان کتاب، نویسنده یا شابک..." value="{{ query|default:'' }}">
+            <button type="submit" class="btn btn-primary">🔍 جستجو</button>
+        </form>
+    </div>
+
+    {% if query %}
+        {% if results %}
+        <div style="margin-top: 16px;">
+            <p style="color: var(--text-muted); margin-bottom: 12px;">
+                {{ results|length }} نتیجه برای "{{ query }}"
+                {% if results.0.source %}
+                <small style="font-size: 0.85rem;">(منبع: {{ results.0.source }})</small>
+                {% endif %}
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for result in results %}
+                <div style="border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; background: var(--surface-raised);">
+                    <h4 style="margin: 0 0 4px 0;">{{ result.title }}</h4>
+                    <p style="margin: 0 0 4px 0; color: var(--text-muted); font-size: 0.95rem;">✍️ {{ result.author|default:'نامشخص' }}</p>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">
+                        <span>📅 {{ result.year|default:'سال نامشخص' }}</span>
+                        <span>🏢 {{ result.publisher|default:'ناشر نامشخص' }}</span>
+                        {% if result.isbn %}<span>📚 {{ result.isbn }}</span>{% endif %}
+                        {% if result.source %}<span>🔗 {{ result.source }}</span>{% endif %}
+                    </div>
+                    <form method="post" action="{% url 'library:book_import' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="title" value="{{ result.title }}">
+                        <input type="hidden" name="author" value="{{ result.author|default:'' }}">
+                        <input type="hidden" name="publisher" value="{{ result.publisher|default:'' }}">
+                        <input type="hidden" name="year" value="{{ result.year|default:'' }}">
+                        <input type="hidden" name="isbn" value="{{ result.isbn|default:'' }}">
+                        <button type="submit" class="btn btn-primary" style="font-size: 0.9rem;">➕ افزودن به کتابخانه</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+            <div style="font-size: 3rem; margin-bottom: 12px;">😕</div>
+            <p style="font-size: 1.1rem;">نتیجه‌ای برای "{{ query }}" یافت نشد.</p>
+            <p style="font-size: 0.95rem;">
+                لطفاً عبارت جستجو را تغییر دهید یا از
+                <a href="https://ketab.ir/search?q={{ query }}" target="_blank" style="color: var(--accent-500);">سایت ketab.ir</a>
+                جستجو کنید.
+            </p>
+        </div>
+        {% endif %}
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 12px;">🔎</div>
+        <p style="font-size: 1.1rem;">عبارت جستجو را وارد کنید.</p>
+        <p style="font-size: 0.95rem;">می‌توانید بر اساس عنوان، نویسنده یا شابک جستجو کنید.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

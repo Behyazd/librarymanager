@@ -1,0 +1,365 @@
+{% load pwa %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>{% block title %}کتابخانه{% endblock %}</title>
+
+  <!-- PWA Meta Tags -->
+  {% progressive_web_app_meta %}
+
+  <!-- iOS Touch Icons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/static/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/static/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/static/icons/icon-192x192.png">
+
+  <!-- Android Touch Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/static/icons/icon-512x512.png">
+
+  <!-- Meta Tags for iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="کتابخانه من">
+
+  <!-- Meta Tags for Android -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="کتابخانه من">
+  <meta name="theme-color" content="#0A76D6">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --neutral-50:  oklch(98% 0.004 260);
+      --neutral-100: oklch(95% 0.006 260);
+      --neutral-200: oklch(88% 0.008 260);
+      --neutral-400: oklch(68% 0.010 260);
+      --neutral-600: oklch(48% 0.012 260);
+      --neutral-800: oklch(28% 0.012 260);
+      --neutral-900: oklch(16% 0.010 260);
+
+      --accent-500: oklch(52% 0.18 250);
+      --accent-600: oklch(44% 0.18 250);
+      --accent-100: oklch(94% 0.06 250);
+
+      --danger:  oklch(52% 0.20 25);
+      --success: oklch(52% 0.16 155);
+      --warn:    oklch(62% 0.18 80);
+
+      --surface:        var(--neutral-50);
+      --surface-raised: #fff;
+      --border:         var(--neutral-200);
+      --text-body:      var(--neutral-800);
+      --text-muted:     var(--neutral-600);
+
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px;
+      --space-4: 16px; --space-6: 24px; --space-8: 32px;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: "Vazirmatn", system-ui, sans-serif;
+      font-size: 1rem;
+      line-height: 1.7;
+      color: var(--text-body);
+      background: var(--surface);
+      min-height: 100vh;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    /* ── Nav (Desktop) ── */
+    nav.desktop-nav {
+      background: var(--surface-raised);
+      border-bottom: 1px solid var(--border);
+      padding: var(--space-3) var(--space-6);
+      display: flex;
+      align-items: center;
+      gap: var(--space-6);
+    }
+    nav.desktop-nav .brand { font-weight: 700; font-size: 1.1rem; color: var(--accent-600); }
+    nav.desktop-nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9375rem;
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius-sm);
+      transition: color 150ms, background 150ms;
+    }
+    nav.desktop-nav a:hover  { color: var(--text-body); background: var(--neutral-100); }
+    nav.desktop-nav a:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+
+    /* ── Bottom Navigation (Mobile) ── */
+    nav.mobile-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface-raised);
+      border-top: 1px solid var(--border);
+      justify-content: space-around;
+      padding: var(--space-2) 0;
+      padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+      z-index: 1000;
+      box-shadow: 0 -2px 10px oklch(0% 0 0 / 5%);
+    }
+    nav.mobile-nav a {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: var(--space-1);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      transition: color 150ms;
+    }
+    nav.mobile-nav a:hover, nav.mobile-nav a.active {
+      color: var(--accent-500);
+    }
+    nav.mobile-nav a .icon {
+      font-size: 1.25rem;
+    }
+
+    /* ── Layout ── */
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-6);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      box-shadow: 0 1px 3px oklch(0% 0 0 / 6%);
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      border: none;
+      font-size: 0.9375rem;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 150ms, transform 80ms;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+    .btn-primary  { background: var(--accent-500); color: #fff; }
+    .btn-primary:hover { background: var(--accent-600); }
+    .btn-ghost    { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--neutral-100); color: var(--text-body); }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 2px var(--space-2);
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+    .badge-ok      { background: oklch(94% 0.06 155); color: oklch(34% 0.14 155); }
+    .badge-warn    { background: oklch(94% 0.06 80);  color: oklch(38% 0.16 80); }
+    .badge-danger  { background: oklch(94% 0.06 25);  color: oklch(36% 0.18 25); }
+
+    /* ── Messages ── */
+    .messages { list-style: none; margin-bottom: var(--space-4); }
+    .messages li {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-2);
+      font-size: 0.9375rem;
+    }
+    .messages .success { background: oklch(94% 0.06 155); color: oklch(28% 0.14 155); }
+    .messages .error   { background: oklch(94% 0.06 25);  color: oklch(30% 0.18 25); }
+    .messages .warning { background: oklch(94% 0.06 80);  color: oklch(32% 0.16 80); }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+    thead th {
+      text-align: right;
+      padding: var(--space-2) var(--space-3);
+      border-bottom: 2px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 600;
+      position: sticky; top: 0;
+      background: var(--surface-raised);
+    }
+    tbody td { padding: var(--space-3); border-bottom: 1px solid var(--neutral-100); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--neutral-50); }
+
+    /* ── Search bar ── */
+    .search-bar {
+      display: flex;
+      gap: var(--space-2);
+      margin-bottom: var(--space-6);
+    }
+    .search-bar input {
+      flex: 1;
+      padding: var(--space-2) var(--space-4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--surface-raised);
+      color: var(--text-body);
+      transition: border-color 150ms;
+    }
+    .search-bar input:focus {
+      outline: none;
+      border-color: var(--accent-500);
+      box-shadow: 0 0 0 3px oklch(52% 0.18 250 / 18%);
+    }
+
+    /* ── Mobile Responsive ── */
+    @media (max-width: 768px) {
+      body {
+        font-size: 0.9375rem;
+      }
+
+      nav.desktop-nav {
+        display: none;
+      }
+
+      nav.mobile-nav {
+        display: flex;
+      }
+
+      main {
+        padding: var(--space-4) var(--space-3);
+        padding-bottom: 90px;
+        max-width: 100%;
+      }
+
+      .card {
+        padding: var(--space-4);
+        border-radius: var(--radius-md);
+      }
+
+      table {
+        font-size: 0.875rem;
+        min-width: 600px;
+      }
+
+      thead th, tbody td {
+        padding: var(--space-2);
+        white-space: nowrap;
+      }
+
+      .btn {
+        padding: var(--space-2) var(--space-3);
+        font-size: 0.875rem;
+      }
+
+      .search-bar {
+        flex-direction: column;
+      }
+
+      .search-bar input {
+        width: 100%;
+      }
+
+      h2 {
+        font-size: 1.25rem;
+      }
+
+      input, select, textarea {
+        font-size: 16px !important;
+      }
+
+      /* فرم‌ها تک ستونی */
+      .form-grid, [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    /* ── Tablet ── */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      main {
+        padding: var(--space-6) var(--space-4);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet" />
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- نوار ناوبری دسکتاپ -->
+  <nav class="desktop-nav">
+    <span class="brand">📚 کتابخانه</span>
+    <a href="{% url 'library:book_list' %}">کتاب‌ها</a>
+    <a href="{% url 'library:book_search' %}">جستجوی آنلاین</a>
+    <a href="{% url 'library:member_list' %}">اعضا</a>
+    <a href="{% url 'library:loan_list' %}">امانت‌ها</a>
+    <a href="/admin/">پنل مدیریت</a>
+  </nav>
+
+  <!-- نوار ناوبری موبایل (پایین صفحه) -->
+  <nav class="mobile-nav">
+    <a href="{% url 'library:book_list' %}">
+      <span class="icon">📚</span>
+      <span>کتاب‌ها</span>
+    </a>
+    <a href="{% url 'library:book_search' %}">
+      <span class="icon">🔍</span>
+      <span>جستجو</span>
+    </a>
+    <a href="{% url 'library:member_list' %}">
+      <span class="icon">👥</span>
+      <span>اعضا</span>
+    </a>
+    <a href="{% url 'library:loan_list' %}">
+      <span class="icon">📋</span>
+      <span>امانت‌ها</span>
+    </a>
+    <a href="/admin/">
+      <span class="icon">⚙️</span>
+      <span>مدیریت</span>
+    </a>
+  </nav>
+
+  <main>
+    {% if messages %}
+    <ul class="messages" role="status">
+      {% for msg in messages %}
+      <li class="{{ msg.tags }}">{{ msg }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

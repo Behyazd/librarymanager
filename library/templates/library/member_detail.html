@@ -1,0 +1,159 @@
+{% extends 'library/base.html' %}
+
+{% block title %}{{ member.full_name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+        <div>
+            <h2 style="margin: 0;">👤 {{ member.full_name }}</h2>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted);">
+                کد عضویت: <code style="background: var(--neutral-100); padding: 2px 8px; border-radius: 4px;">{{ member.member_code }}</code>
+            </p>
+        </div>
+        <div style="text-align: left;">
+            <span class="badge {% if member.is_active %}badge-ok{% else %}badge-danger{% endif %}" style="font-size: 1rem; padding: 4px 16px;">
+                {% if member.is_active %}✅ فعال{% else %}❌ غیرفعال{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 16px; background: var(--neutral-50); border-radius: var(--radius-md);">
+        <div>
+            <strong>📞 تلفن:</strong>
+            <span style="display: block; margin-top: 2px;">{{ member.phone|default:'—' }}</span>
+        </div>
+        <div>
+            <strong>🆔 کد ملی:</strong>
+            <span style="display: block; margin-top: 2px;">{{ member.national_id|default:'—' }}</span>
+        </div>
+        <div>
+            <strong>📅 تاریخ عضویت:</strong>
+            <span style="display: block; margin-top: 2px;">{{ member.join_date|date:"Y/m/d" }}</span>
+        </div>
+        <div>
+            <strong>📚 امانت فعال:</strong>
+            <span style="display: block; margin-top: 2px;">
+                <span class="badge {% if member.active_loans_count > 0 %}badge-warn{% else %}badge-ok{% endif %}">
+                    {{ member.active_loans_count }}
+                </span>
+            </span>
+        </div>
+        <div>
+            <strong>📚 حداکثر امانت:</strong>
+            <span style="display: block; margin-top: 2px;">{{ member.max_loans }}</span>
+        </div>
+        <div>
+            <strong>📋 وضعیت:</strong>
+            <span style="display: block; margin-top: 2px;">
+                {% if member.can_borrow %}
+                <span class="badge badge-ok">✅ امکان امانت دارد</span>
+                {% else %}
+                <span class="badge badge-danger">❌ امکان امانت ندارد</span>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    {% if member.address %}
+    <div style="margin-bottom: 12px;">
+        <strong>📍 آدرس:</strong>
+        <p style="margin: 4px 0 0 0; color: var(--text-muted); padding: 8px 12px; background: var(--neutral-50); border-radius: var(--radius-md);">
+            {{ member.address }}
+        </p>
+    </div>
+    {% endif %}
+
+    {% if member.notes %}
+    <div style="margin-bottom: 16px;">
+        <strong>📝 یادداشت:</strong>
+        <p style="margin: 4px 0 0 0; color: var(--text-muted); padding: 8px 12px; background: var(--neutral-50); border-radius: var(--radius-md);">
+            {{ member.notes }}
+        </p>
+    </div>
+    {% endif %}
+
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <a href="/admin/library/member/{{ member.pk }}/change/" class="btn btn-primary">✏️ ویرایش</a>
+        <a href="{% url 'library:member_list' %}" class="btn btn-ghost">← بازگشت به لیست اعضا</a>
+    </div>
+
+    <h3 style="margin: 0 0 12px 0; border-bottom: 2px solid var(--border); padding-bottom: 8px;">📚 تاریخچه امانت‌ها</h3>
+
+    {% if loans %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>کتاب</th>
+                    <th>تاریخ امانت</th>
+                    <th>تاریخ بازگشت</th>
+                    <th>وضعیت</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in loans %}
+                <tr>
+                    <td>
+                        <a href="{% url 'library:book_detail' loan.book.pk %}" style="color: var(--accent-600); text-decoration: none;">
+                            {{ loan.book.title }}
+                        </a>
+                    </td>
+                    <td>{{ loan.loan_date|date:"Y/m/d" }}</td>
+                    <td>
+                        {{ loan.due_date|date:"Y/m/d" }}
+                        {% if loan.status == 'active' and loan.is_overdue %}
+                        <span class="badge badge-danger" style="font-size: 0.75rem;">⏰ {{ loan.days_overdue }} روز</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if loan.status == 'active' %}
+                            <span class="badge badge-warn">🟡 فعال</span>
+                            {% if loan.is_overdue %}
+                            <span class="badge badge-danger">⏰ تأخیر</span>
+                            {% endif %}
+                        {% elif loan.status == 'returned' %}
+                            <span class="badge badge-ok">✅ برگشت داده شده</span>
+                            {% if loan.returned_date %}
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">
+                                {{ loan.returned_date|date:"Y/m/d" }}
+                            </span>
+                            {% endif %}
+                        {% elif loan.status == 'renewed' %}
+                            <span class="badge" style="background: oklch(94% 0.06 220); color: oklch(34% 0.14 220);">🔄 تمدید شده</span>
+                        {% elif loan.status == 'lost' %}
+                            <span class="badge badge-danger">❌ مفقود</span>
+                        {% else %}
+                            <span class="badge" style="background: var(--neutral-200); color: var(--text-muted);">{{ loan.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if loan.status == 'active' %}
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <a href="{% url 'library:loan_return' loan.pk %}" class="btn btn-ghost" style="padding: 2px 10px; font-size: 0.8rem; color: var(--success);">✅ بازگشت</a>
+                            {% if loan.can_renew %}
+                            <a href="{% url 'library:loan_extend' loan.pk %}" class="btn btn-ghost" style="padding: 2px 10px; font-size: 0.8rem;">🔄 تمدید</a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                        این عضو هیچ امانتی ندارد.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 24px 0; color: var(--text-muted);">
+        <div style="font-size: 2rem; margin-bottom: 8px;">📭</div>
+        <p>هیچ امانتی برای این عضو ثبت نشده است.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
