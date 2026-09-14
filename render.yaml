@@ -9,7 +9,7 @@ services:
     name: librarymanager
     runtime: python
     plan: free
-    buildCommand: "./build.sh"
+    buildCommand: "bash build.sh"
     startCommand: "gunicorn library_project.wsgi:application"
     envVars:
       - key: DATABASE_URL
