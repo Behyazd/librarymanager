@@ -23,15 +23,22 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '0.0.0.0',
     '.onrender.com',
+    'librarymanager-fvth.onrender.com',
     'behyazd.pythonanywhere.com',
     '172.19.8.216',
+    '.median.co',
+    '.gonative.io',
+    '.median.co.',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    'https://librarymanager-fvth.onrender.com',
     'https://*.onrender.com',
     'https://behyazd.pythonanywhere.com',
     'https://*.median.co',
     'https://*.median.co.',
+    'https://*.gonative.io',
+    'https://*.gonative.io.',
     'https://*.trycloudflare.com',
     'https://*.lhr.life',
     'https://*.localhost.run',
