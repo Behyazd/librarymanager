@@ -1,0 +1,24 @@
+databases:
+  - name: library-db
+    databaseName: library_db
+    user: library_user
+    plan: free
+
+services:
+  - type: web
+    name: librarymanager
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn library_project.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: library-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: PYTHON_VERSION
+        value: 3.10.0
