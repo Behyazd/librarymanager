@@ -57,6 +57,55 @@ def book_list(request):
 
 
 @login_required
+def book_add(request):
+    """اضافه کردن کتاب جدید به صورت دستی یا از فایل MARC"""
+    if request.method == 'POST':
+        try:
+            title = request.POST.get('title', '').strip()
+            isbn = request.POST.get('isbn', '').strip() or None
+
+            if not title:
+                messages.error(request, 'عنوان کتاب الزامی است.')
+                return render(request, 'library/book_add.html')
+
+            # بررسی تکراری بودن شابک
+            if isbn:
+                existing = Book.objects.filter(isbn=isbn).first()
+                if existing:
+                    messages.error(request, f'کتابی با این شابک قبلاً ثبت شده: {existing.title}')
+                    return render(request, 'library/book_add.html')
+
+            # ایجاد کتاب با همه فیلدهای جدید
+            book = Book.objects.create(
+                title=title,
+                subtitle=request.POST.get('subtitle', ''),
+                author=request.POST.get('author', ''),
+                isbn=isbn,
+                publisher=request.POST.get('publisher', ''),
+                publish_place=request.POST.get('publish_place', ''),
+                publish_year=request.POST.get('publish_year', ''),
+                pages=request.POST.get('pages', ''),
+                dimensions=request.POST.get('dimensions', ''),
+                dewey_class=request.POST.get('dewey_class', ''),
+                lcc_class=request.POST.get('lcc_class', ''),
+                national_biblio_number=request.POST.get('national_biblio_number', ''),
+                subject=request.POST.get('subject', ''),
+                notes=request.POST.get('notes', ''),
+                fapa=request.POST.get('fapa', ''),
+                marc_record=request.POST.get('marc_record', ''),
+                total_copies=int(request.POST.get('total_copies', 1)),
+                added_by=request.user,
+            )
+
+            messages.success(request, f'کتاب «{book.title}» با موفقیت اضافه شد.')
+            return redirect('library:book_detail', pk=book.pk)
+
+        except Exception as e:
+            messages.error(request, f'خطا در ذخیره کتاب: {str(e)}')
+            return render(request, 'library/book_add.html')
+
+    return render(request, 'library/book_add.html')
+
 def book_detail(request, pk):
     book = get_object_or_404(Book, pk=pk)
     active_loan = Loan.objects.filter(book=book, status='active').first()

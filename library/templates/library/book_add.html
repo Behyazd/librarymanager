@@ -6,7 +6,23 @@
 <div class="card">
     <h2 style="margin: 0 0 16px 0;">➕ افزودن کتاب جدید</h2>
 
-    <form method="post">
+    <!-- ==================== بخش بارگذاری MARC ==================== -->
+    <div style="background: var(--neutral-50); padding: 16px; border-radius: var(--radius-md); margin-bottom: 24px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 1.1rem;">📁 بارگذاری از فایل MARC</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;">
+            فایل MARC (txt یا mrc) خود را انتخاب کنید تا فیلدها به صورت خودکار پر شوند.
+        </p>
+
+        <input type="file" id="marc-file" accept=".txt,.mrc,.marc" style="margin-bottom: 8px;">
+        <button type="button" id="parse-marc-btn" class="btn btn-primary" onclick="parseMarc()">
+            🔍 پردازش فایل MARC
+        </button>
+
+        <div id="marc-status" style="margin-top: 8px; font-size: 0.9rem;"></div>
+    </div>
+
+    <!-- ==================== فرم کتاب ==================== -->
+    <form method="post" id="book-form">
         {% csrf_token %}
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -15,21 +31,44 @@
                 <input type="text" id="title" name="title" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
-                <label for="author" style="display: block; font-weight: 600; margin-bottom: 4px;">پدیدآور</label>
+                <label for="subtitle" style="display: block; font-weight: 600; margin-bottom: 4px;">عنوان فرعی</label>
+                <input type="text" id="subtitle" name="subtitle" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="author" style="display: block; font-weight: 600; margin-bottom: 4px;">نویسنده *</label>
                 <input type="text" id="author" name="author" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="isbn" style="display: block; font-weight: 600; margin-bottom: 4px;">شابک</label>
+                <input type="text" id="isbn" name="isbn" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
                 <label for="publisher" style="display: block; font-weight: 600; margin-bottom: 4px;">ناشر</label>
                 <input type="text" id="publisher" name="publisher" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
+                <label for="publish_place" style="display: block; font-weight: 600; margin-bottom: 4px;">محل نشر</label>
+                <input type="text" id="publish_place" name="publish_place" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
                 <label for="publish_year" style="display: block; font-weight: 600; margin-bottom: 4px;">سال نشر</label>
                 <input type="text" id="publish_year" name="publish_year" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
-                <label for="isbn" style="display: block; font-weight: 600; margin-bottom: 4px;">شابک</label>
-                <input type="text" id="isbn" name="isbn" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
-                <small style="color: var(--text-muted);">شابک باید یکتا باشد. اگر خالی بگذارید، ثبت نمی‌شود.</small>
+                <label for="pages" style="display: block; font-weight: 600; margin-bottom: 4px;">تعداد صفحه</label>
+                <input type="text" id="pages" name="pages" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="dewey_class" style="display: block; font-weight: 600; margin-bottom: 4px;">رده دیویی</label>
+                <input type="text" id="dewey_class" name="dewey_class" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="lcc_class" style="display: block; font-weight: 600; margin-bottom: 4px;">رده کنگره</label>
+                <input type="text" id="lcc_class" name="lcc_class" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="national_biblio_number" style="display: block; font-weight: 600; margin-bottom: 4px;">شماره کتابشناسی ملی</label>
+                <input type="text" id="national_biblio_number" name="national_biblio_number" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
                 <label for="total_copies" style="display: block; font-weight: 600; margin-bottom: 4px;">تعداد کل نسخه‌ها</label>
@@ -37,10 +76,103 @@
             </div>
         </div>
 
+        <div style="margin-top: 12px;">
+            <label for="subject" style="display: block; font-weight: 600; margin-bottom: 4px;">موضوعات</label>
+            <textarea id="subject" name="subject" rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;"></textarea>
+        </div>
+
+        <div style="margin-top: 12px;">
+            <label for="notes" style="display: block; font-weight: 600; margin-bottom: 4px;">یادداشت</label>
+            <textarea id="notes" name="notes" rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;"></textarea>
+        </div>
+
+        <input type="hidden" id="marc_record" name="marc_record">
+
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
             <button type="submit" class="btn btn-primary">➕ افزودن کتاب</button>
             <a href="{% url 'library:book_list' %}" class="btn btn-ghost">← انصراف</a>
         </div>
     </form>
 </div>
+
+<!-- ==================== JavaScript ==================== -->
+<script>
+async function parseMarc() {
+    const fileInput = document.getElementById('marc-file');
+    const statusDiv = document.getElementById('marc-status');
+
+    if (!fileInput.files.length) {
+        statusDiv.innerHTML = '<span style="color: red;">❌ لطفاً یک فایل MARC انتخاب کنید</span>';
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    statusDiv.innerHTML = '<span style="color: blue;">⏳ در حال پردازش...</span>';
+
+    try {
+        const token = localStorage.getItem('access_token');
+
+        const response = await fetch('/api/books/parse-marc/', {
+            method: 'POST',
+            headers: {
+                'Authorization': token ? `Bearer ${token}` : '',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            statusDiv.innerHTML = `<span style="color: red;">❌ ${data.error || 'خطا در پردازش'}</span>`;
+            return;
+        }
+
+        if (data.count === 0) {
+            statusDiv.innerHTML = '<span style="color: red;">❌ هیچ رکوردی یافت نشد</span>';
+            return;
+        }
+
+        const record = data.records[0];
+
+        document.getElementById('title').value = record.title || '';
+        document.getElementById('subtitle').value = record.subtitle || '';
+        document.getElementById('author').value = record.author || '';
+        document.getElementById('isbn').value = record.isbn || '';
+        document.getElementById('publisher').value = record.publisher || '';
+        document.getElementById('publish_place').value = record.publish_place || '';
+        document.getElementById('publish_year').value = record.publish_year || '';
+        document.getElementById('pages').value = record.pages || '';
+        document.getElementById('dewey_class').value = record.dewey_class || '';
+        document.getElementById('lcc_class').value = record.lcc_class || '';
+        document.getElementById('national_biblio_number').value = record.national_biblio_number || '';
+        document.getElementById('subject').value = record.subject || '';
+        document.getElementById('notes').value = record.notes || '';
+        document.getElementById('marc_record').value = record.marc_record || '';
+
+        statusDiv.innerHTML = `<span style="color: green;">✅ ${data.count} رکورد یافت شد. فیلدها پر شدند.</span>`;
+
+    } catch (error) {
+        statusDiv.innerHTML = `<span style="color: red;">❌ خطا: ${error.message}</span>`;
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

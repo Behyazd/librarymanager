@@ -7,37 +7,47 @@ from django.core.files.base import ContentFile
 
 
 class Book(models.Model):
-    # شناسه‌ها
-    isbn = models.CharField('شابک', max_length=20, blank=True, null=True, unique=True)
+    # ==================== شناسه‌ها ====================
+    isbn = models.CharField('شابک', max_length=50, blank=True, null=True, unique=True)
     national_biblio_number = models.CharField('شماره کتابشناسی ملی', max_length=30, blank=True)
 
-    # اطلاعات اصلی
+    # ==================== اطلاعات اصلی (از 245) ====================
     title = models.CharField('عنوان', max_length=500)
-    subtitle = models.CharField('زیرعنوان', max_length=500, blank=True)
-    author = models.CharField('پدیدآور', max_length=300)
-    translator = models.CharField('مترجم', max_length=300, blank=True)
-    editor = models.CharField('ویراستار', max_length=300, blank=True)
+    subtitle = models.CharField('عنوان فرعی', max_length=500, blank=True)
+    statement_of_responsibility = models.CharField('عنوان و نام پدیدآور', max_length=500, blank=True)
 
-    # مشخصات نشر
+    # ==================== پدیدآور (از 100) ====================
+    author = models.CharField('سرشناسه (نویسنده)', max_length=300)
+    author_dates = models.CharField('سال‌های زندگی نویسنده', max_length=100, blank=True)
+
+    # ==================== مشخصات نشر (از 260) ====================
     publisher = models.CharField('ناشر', max_length=200, blank=True)
     publish_place = models.CharField('محل نشر', max_length=100, blank=True)
     publish_year = models.CharField('سال نشر', max_length=10, blank=True)
-    edition = models.CharField('چاپ', max_length=50, blank=True)
-    pages = models.PositiveIntegerField('تعداد صفحه', null=True, blank=True)
-    volume = models.CharField('جلد', max_length=20, blank=True)
-    series = models.CharField('مجموعه', max_length=200, blank=True)
 
-    # رده‌بندی
+    # ==================== مشخصات ظاهری (از 300) ====================
+    pages = models.CharField('تعداد صفحه', max_length=50, blank=True)
+    dimensions = models.CharField('ابعاد', max_length=100, blank=True)
+
+    # ==================== رده‌بندی ====================
     dewey_class = models.CharField('رده دیویی', max_length=50, blank=True)
     lcc_class = models.CharField('رده کنگره', max_length=100, blank=True)
-    subject = models.TextField('موضوعات', blank=True)  # با خط جدید جدا می‌شود
 
-    # فیزیکی
+    # ==================== موضوعات (از 650) ====================
+    subject = models.TextField('موضوعات', blank=True)
+
+    # ==================== یادداشت‌ها (از 504) ====================
+    notes = models.TextField('یادداشت', blank=True)
+
+    # ==================== فاپا (از 015) ====================
+    fapa = models.CharField('وضعیت فهرست‌نویسی', max_length=100, blank=True)
+
+    # ==================== فیزیکی ====================
     language = models.CharField('زبان', max_length=50, default='فارسی')
     cover_image = models.ImageField('تصویر جلد', upload_to='covers/', blank=True, null=True)
     qr_code = models.ImageField('QR Code', upload_to='qrcodes/', blank=True, null=True)
 
-    # وضعیت
+    # ==================== وضعیت ====================
     CONDITION_CHOICES = [
         ('excellent', 'عالی'),
         ('good', 'خوب'),
@@ -49,8 +59,8 @@ class Book(models.Model):
     copy_number = models.PositiveIntegerField('شماره نسخه', default=1)
     total_copies = models.PositiveIntegerField('تعداد کل نسخه‌ها', default=1)
 
-    # متا
-    notes = models.TextField('یادداشت', blank=True)
+    # ==================== متا ====================
+    marc_record = models.TextField('رکورد MARC خام', blank=True)  # ← ذخیره فایل خام
     added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='added_books')
     created_at = models.DateTimeField('تاریخ افزودن', auto_now_add=True)
     updated_at = models.DateTimeField('آخرین ویرایش', auto_now=True)
@@ -65,7 +75,6 @@ class Book(models.Model):
 
     @property
     def is_available(self):
-        """آیا حداقل یک نسخه موجود است؟"""
         active_loans = self.loans.filter(status='active').count()
         return active_loans < self.total_copies
 
@@ -74,23 +83,19 @@ class Book(models.Model):
         active_loans = self.loans.filter(status='active').count()
         return max(0, self.total_copies - active_loans)
 
-    def generate_qr(self):
-        """تولید QR Code برای این کتاب"""
-        qr = qrcode.QRCode(version=1, box_size=10, border=4)
-        qr.add_data(f"BOOK:{self.pk}:{self.isbn or self.title}")
-        qr.make(fit=True)
-        img = qr.make_image(fill='black', back_color='white')
-        buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
-        filename = f'book_{self.pk}.png'
-        self.qr_code.save(filename, ContentFile(buffer.getvalue()), save=False)
+    class Meta:
+        verbose_name = 'کتاب'
+        verbose_name_plural = 'کتاب‌ها'
+        ordering = ['title']
 
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        if is_new and not self.qr_code:
-            self.generate_qr()
-            super().save(update_fields=['qr_code'])
+    def __str__(self):
+        return f"{self.title} — {self.author}"
+
+    @property
+    def is_available(self):
+        """آیا حداقل یک نسخه موجود است؟"""
+        active_loans = self.loans.filter(status='active').count()
+        return active_loans < self.total_copies
 
 
 class Member(models.Model):

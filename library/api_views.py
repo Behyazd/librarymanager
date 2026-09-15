@@ -1,4 +1,12 @@
 # library/api_views.py
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.core.files.uploadedfile import UploadedFile
+from .marc_parser import parse_marc_file
+
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,6 +18,48 @@ from .serializers import (
     NotificationSerializer, RegisterSerializer, UserSerializer
 )
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def parse_marc(request):
+    """
+    دریافت فایل MARC و برگرداندن فیلدهای استخراج شده به JSON
+    """
+    if 'file' not in request.FILES:
+        return Response(
+            {'error': 'فایل MARC ارسال نشده است'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    uploaded_file = request.FILES['file']
+
+    # بررسی پسوند فایل
+    if not uploaded_file.name.endswith(('.txt', '.mrc', '.marc')):
+        return Response(
+            {'error': 'فرمت فایل باید txt، mrc یا marc باشد'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        file_bytes = uploaded_file.read()
+        records = parse_marc_file(file_bytes)
+
+        if not records:
+            return Response(
+                {'error': 'هیچ رکورد MARC معتبری یافت نشد'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({
+            'count': len(records),
+            'records': records,
+        })
+
+    except Exception as e:
+        return Response(
+            {'error': f'خطا در پردازش فایل: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 class AuthViewSet(viewsets.ViewSet):
     # library/api_views.py (در AuthViewSet)

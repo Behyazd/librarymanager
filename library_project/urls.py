@@ -5,6 +5,8 @@ from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from library.api_views import simple_login
+from library.api_views import parse_marc
+
 
 from library.api_views import (
     BookViewSet, MemberViewSet, LoanViewSet,
@@ -26,6 +28,8 @@ urlpatterns = [
     path('', include('library.urls')),
     path('api/simple-login/', simple_login, name='simple_login'),
     path('', include('pwa.urls')),
+    path('api/', include(router.urls)),
+    path('api/books/parse-marc/', parse_marc, name='parse_marc'),
     path('api/', include(router.urls)),
 ]
 

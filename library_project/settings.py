@@ -18,18 +18,8 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '0.0.0.0',
-    '.onrender.com',
-    'librarymanager-fvth.onrender.com',
-    'behyazd.pythonanywhere.com',
-    '172.19.8.216',
-    '.median.co',
-    '.gonative.io',
-    '.median.co.',
-]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '172.19.8.216']
+
 
 CSRF_TRUSTED_ORIGINS = [
     'https://librarymanager-fvth.onrender.com',
@@ -202,13 +192,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ==================== SECURITY (PRODUCTION) ====================
 # این تنظیمات فقط در محیط تولید (DEBUG=False) اعمال می‌شوند
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_HSTS_SECONDS = 31536000  # 1 سال
+    SECURE_HSTS_SECONDS = 0  # 1 سال
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
