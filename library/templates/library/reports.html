@@ -1,0 +1,178 @@
+{% extends 'library/base.html' %}
+
+{% block title %}گزارش‌ها{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 16px 0;">📊 گزارش‌های کتابخانه</h2>
+
+    <!-- ==================== آمار کلی (کلیک‌پذیر) ==================== -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px;">
+        <a href="{% url 'library:report_books' %}" style="text-decoration: none; color: inherit;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 16px; border-radius: var(--radius-md); text-align: center; cursor: pointer; transition: transform 150ms;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size: 2rem; font-weight: 700;">{{ total_books }}</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">کل کتاب‌ها</div>
+            </div>
+        </a>
+        <a href="{% url 'library:report_books' %}" style="text-decoration: none; color: inherit;">
+            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: #fff; padding: 16px; border-radius: var(--radius-md); text-align: center; cursor: pointer; transition: transform 150ms;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size: 2rem; font-weight: 700;">{{ total_copies }}</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">کل نسخه‌ها</div>
+            </div>
+        </a>
+        <a href="{% url 'library:report_available_books' %}" style="text-decoration: none; color: inherit;">
+            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #fff; padding: 16px; border-radius: var(--radius-md); text-align: center; cursor: pointer; transition: transform 150ms;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size: 2rem; font-weight: 700;">{{ available_books }}</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">کتاب‌های موجود</div>
+            </div>
+        </a>
+        <a href="{% url 'library:report_members' %}" style="text-decoration: none; color: inherit;">
+            <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: #fff; padding: 16px; border-radius: var(--radius-md); text-align: center; cursor: pointer; transition: transform 150ms;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size: 2rem; font-weight: 700;">{{ total_members }}</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">کل اعضا</div>
+            </div>
+        </a>
+        <a href="{% url 'library:report_active_loans' %}" style="text-decoration: none; color: inherit;">
+            <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #fff; padding: 16px; border-radius: var(--radius-md); text-align: center; cursor: pointer; transition: transform 150ms;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size: 2rem; font-weight: 700;">{{ active_loans }}</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">امانت فعال</div>
+            </div>
+        </a>
+        <a href="{% url 'library:report_overdue_loans' %}" style="text-decoration: none; color: inherit;">
+            <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); color: #fff; padding: 16px; border-radius: var(--radius-md); text-align: center; cursor: pointer; transition: transform 150ms;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="font-size: 2rem; font-weight: 700;">{{ overdue_loans }}</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">سررسید گذشته</div>
+            </div>
+        </a>
+    </div>
+
+    <!-- ==================== کتاب‌های پرامانت ==================== -->
+    <h3 style="margin: 0 0 12px 0; border-bottom: 2px solid var(--border); padding-bottom: 8px;">🔥 کتاب‌های پرامانت</h3>
+    {% if popular_books %}
+    <div class="table-wrap" style="margin-bottom: 24px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>عنوان</th>
+                    <th>نویسنده</th>
+                    <th>تعداد امانت</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for book in popular_books %}
+                <tr>
+                    <td><a href="{% url 'library:book_detail' book.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ book.title }}</a></td>
+                    <td>{{ book.author }}</td>
+                    <td><span class="badge badge-warn">{{ book.loan_count }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted); margin-bottom: 24px;">هیچ امانتی ثبت نشده است.</p>
+    {% endif %}
+
+    <!-- ==================== امانت‌های سررسید گذشته ==================== -->
+    <h3 style="margin: 0 0 12px 0; border-bottom: 2px solid var(--border); padding-bottom: 8px; color: var(--danger);">
+        ⏰ امانت‌های سررسید گذشته
+        <a href="{% url 'library:report_overdue_loans' %}" style="font-size: 0.8rem; color: var(--accent-500); text-decoration: none; margin-right: 8px;">(مشاهده همه)</a>
+    </h3>
+    {% if overdue_loan_list %}
+    <div class="table-wrap" style="margin-bottom: 24px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>کتاب</th>
+                    <th>عضو</th>
+                    <th>تاریخ بازگشت</th>
+                    <th>روز تأخیر</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in overdue_loan_list|slice:":5" %}
+                <tr>
+                    <td><a href="{% url 'library:book_detail' loan.book.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ loan.book.title }}</a></td>
+                    <td><a href="{% url 'library:member_detail' loan.member.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ loan.member.full_name }}</a></td>
+                    <td>{{ loan.due_date|date:"Y/m/d" }}</td>
+                    <td><span class="badge badge-danger">{{ loan.days_overdue }} روز</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted); margin-bottom: 24px;">هیچ امانت سررسید گذشته‌ای وجود ندارد. ✅</p>
+    {% endif %}
+
+    <!-- ==================== اعضای فعال ==================== -->
+    <h3 style="margin: 0 0 12px 0; border-bottom: 2px solid var(--border); padding-bottom: 8px;">
+        👥 اعضای فعال
+        <a href="{% url 'library:report_members' %}" style="font-size: 0.8rem; color: var(--accent-500); text-decoration: none; margin-right: 8px;">(مشاهده همه)</a>
+    </h3>
+    {% if active_member_list %}
+    <div class="table-wrap" style="margin-bottom: 24px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>نام</th>
+                    <th>کد عضویت</th>
+                    <th>امانت فعال</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in active_member_list|slice:":5" %}
+                <tr>
+                    <td><a href="{% url 'library:member_detail' member.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ member.full_name }}</a></td>
+                    <td><code>{{ member.member_code }}</code></td>
+                    <td><span class="badge badge-warn">{{ member.loan_count }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted); margin-bottom: 24px;">هیچ عضوی ثبت نشده است.</p>
+    {% endif %}
+
+    <!-- ==================== امانت‌های اخیر ==================== -->
+    <h3 style="margin: 0 0 12px 0; border-bottom: 2px solid var(--border); padding-bottom: 8px;">
+        📚 امانت‌های اخیر
+        <a href="{% url 'library:report_active_loans' %}" style="font-size: 0.8rem; color: var(--accent-500); text-decoration: none; margin-right: 8px;">(مشاهده همه)</a>
+    </h3>
+    {% if recent_loans %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>کتاب</th>
+                    <th>عضو</th>
+                    <th>تاریخ امانت</th>
+                    <th>وضعیت</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in recent_loans %}
+                <tr>
+                    <td><a href="{% url 'library:book_detail' loan.book.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ loan.book.title }}</a></td>
+                    <td><a href="{% url 'library:member_detail' loan.member.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ loan.member.full_name }}</a></td>
+                    <td>{{ loan.loan_date|date:"Y/m/d" }}</td>
+                    <td>
+                        {% if loan.status == 'active' %}
+                            <span class="badge badge-warn">فعال</span>
+                        {% elif loan.status == 'returned' %}
+                            <span class="badge badge-ok">برگشت داده شده</span>
+                        {% else %}
+                            <span class="badge">{{ loan.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--text-muted);">هیچ امانتی ثبت نشده است.</p>
+    {% endif %}
+</div>
+{% endblock %}

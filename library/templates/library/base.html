@@ -6,25 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>{% block title %}کتابخانه{% endblock %}</title>
 
-  <!-- PWA Meta Tags -->
   {% progressive_web_app_meta %}
 
-  <!-- iOS Touch Icons -->
   <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/icon-192x192.png">
-  <link rel="apple-touch-icon" sizes="152x152" href="/static/icons/icon-192x192.png">
-  <link rel="apple-touch-icon" sizes="120x120" href="/static/icons/icon-192x192.png">
-  <link rel="apple-touch-icon" sizes="76x76" href="/static/icons/icon-192x192.png">
-
-  <!-- Android Touch Icons -->
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/static/icons/icon-512x512.png">
 
-  <!-- Meta Tags for iOS -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="کتابخانه من">
-
-  <!-- Meta Tags for Android -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="application-name" content="کتابخانه من">
   <meta name="theme-color" content="#0A76D6">
@@ -87,7 +77,8 @@
       padding: var(--space-3) var(--space-6);
       display: flex;
       align-items: center;
-      gap: var(--space-6);
+      gap: var(--space-4);
+      flex-wrap: wrap;
     }
     nav.desktop-nav .brand { font-weight: 700; font-size: 1.1rem; color: var(--accent-600); }
     nav.desktop-nav a {
@@ -129,18 +120,14 @@
       gap: 2px;
       transition: color 150ms;
     }
-    nav.mobile-nav a:hover, nav.mobile-nav a.active {
-      color: var(--accent-500);
-    }
-    nav.mobile-nav a .icon {
-      font-size: 1.25rem;
-    }
+    nav.mobile-nav a:hover { color: var(--accent-500); }
+    nav.mobile-nav a .icon { font-size: 1.25rem; }
 
     /* ── Layout ── */
     main {
-      max-width: 960px;
+      max-width: 1100px;
       margin: 0 auto;
-      padding: var(--space-8) var(--space-6);
+      padding: var(--space-6) var(--space-6);
     }
 
     /* ── Cards ── */
@@ -240,71 +227,22 @@
 
     /* ── Mobile Responsive ── */
     @media (max-width: 768px) {
-      body {
-        font-size: 0.9375rem;
-      }
-
-      nav.desktop-nav {
-        display: none;
-      }
-
-      nav.mobile-nav {
-        display: flex;
-      }
-
+      body { font-size: 0.9375rem; }
+      nav.desktop-nav { display: none; }
+      nav.mobile-nav { display: flex; }
       main {
         padding: var(--space-4) var(--space-3);
         padding-bottom: 90px;
         max-width: 100%;
       }
-
-      .card {
-        padding: var(--space-4);
-        border-radius: var(--radius-md);
-      }
-
-      table {
-        font-size: 0.875rem;
-        min-width: 600px;
-      }
-
-      thead th, tbody td {
-        padding: var(--space-2);
-        white-space: nowrap;
-      }
-
-      .btn {
-        padding: var(--space-2) var(--space-3);
-        font-size: 0.875rem;
-      }
-
-      .search-bar {
-        flex-direction: column;
-      }
-
-      .search-bar input {
-        width: 100%;
-      }
-
-      h2 {
-        font-size: 1.25rem;
-      }
-
-      input, select, textarea {
-        font-size: 16px !important;
-      }
-
-      /* فرم‌ها تک ستونی */
-      .form-grid, [style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
-      }
-    }
-
-    /* ── Tablet ── */
-    @media (min-width: 769px) and (max-width: 1024px) {
-      main {
-        padding: var(--space-6) var(--space-4);
-      }
+      .card { padding: var(--space-4); border-radius: var(--radius-md); }
+      table { font-size: 0.875rem; min-width: 600px; }
+      thead th, tbody td { padding: var(--space-2); white-space: nowrap; }
+      .btn { padding: var(--space-2) var(--space-3); font-size: 0.875rem; }
+      .search-bar { flex-direction: column; }
+      .search-bar input { width: 100%; }
+      h2 { font-size: 1.25rem; }
+      input, select, textarea { font-size: 16px !important; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -320,9 +258,11 @@
   <nav class="desktop-nav">
     <span class="brand">📚 کتابخانه</span>
     <a href="{% url 'library:book_list' %}">کتاب‌ها</a>
+    <a href="{% url 'library:advanced_search' %}">🔍 جستجوی پیشرفته</a>
     <a href="{% url 'library:book_search' %}">جستجوی آنلاین</a>
     <a href="{% url 'library:member_list' %}">اعضا</a>
     <a href="{% url 'library:loan_list' %}">امانت‌ها</a>
+    <a href="{% url 'library:reports' %}">📊 گزارش‌ها</a>
     <a href="/admin/">پنل مدیریت</a>
   </nav>
 
@@ -332,7 +272,7 @@
       <span class="icon">📚</span>
       <span>کتاب‌ها</span>
     </a>
-    <a href="{% url 'library:book_search' %}">
+    <a href="{% url 'library:advanced_search' %}">
       <span class="icon">🔍</span>
       <span>جستجو</span>
     </a>
@@ -344,9 +284,9 @@
       <span class="icon">📋</span>
       <span>امانت‌ها</span>
     </a>
-    <a href="/admin/">
-      <span class="icon">⚙️</span>
-      <span>مدیریت</span>
+    <a href="{% url 'library:reports' %}">
+      <span class="icon">📊</span>
+      <span>گزارش</span>
     </a>
   </nav>
 

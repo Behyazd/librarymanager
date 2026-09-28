@@ -1,0 +1,107 @@
+{% extends 'library/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+        <h2 style="margin: 0;">{{ title }} ({{ count }})</h2>
+        <a href="{% url 'library:reports' %}" class="btn btn-ghost">← بازگشت به گزارش‌ها</a>
+    </div>
+
+    {% if items %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                {% if type == 'books' %}
+                <tr>
+                    <th>عنوان</th>
+                    <th>نویسنده</th>
+                    <th>ناشر</th>
+                    <th>سال</th>
+                    <th>موجودی</th>
+                    <th>عملیات</th>
+                </tr>
+                {% elif type == 'members' %}
+                <tr>
+                    <th>نام</th>
+                    <th>کد عضویت</th>
+                    <th>تلفن</th>
+                    <th>وضعیت</th>
+                    <th>امانت فعال</th>
+                    <th>عملیات</th>
+                </tr>
+                {% elif type == 'loans' %}
+                <tr>
+                    <th>کتاب</th>
+                    <th>عضو</th>
+                    <th>تاریخ امانت</th>
+                    <th>تاریخ بازگشت</th>
+                    <th>وضعیت</th>
+                    <th>عملیات</th>
+                </tr>
+                {% endif %}
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    {% if type == 'books' %}
+                    <td><a href="{% url 'library:book_detail' item.pk %}" style="color: var(--accent-600); text-decoration: none; font-weight: 600;">{{ item.title }}</a></td>
+                    <td>{{ item.author }}</td>
+                    <td>{{ item.publisher|default:'—' }}</td>
+                    <td>{{ item.publish_year|default:'—' }}</td>
+                    <td>
+                        <span class="badge {% if item.available_copies > 0 %}badge-ok{% else %}badge-danger{% endif %}">
+                            {{ item.available_copies }} از {{ item.total_copies }}
+                        </span>
+                    </td>
+                    <td><a href="{% url 'library:book_detail' item.pk %}" class="btn btn-ghost" style="padding: 2px 12px; font-size: 0.85rem;">📖 جزئیات</a></td>
+                    
+                    {% elif type == 'members' %}
+                    <td><a href="{% url 'library:member_detail' item.pk %}" style="color: var(--accent-600); text-decoration: none; font-weight: 600;">{{ item.full_name }}</a></td>
+                    <td><code>{{ item.member_code }}</code></td>
+                    <td>{{ item.phone|default:'—' }}</td>
+                    <td>
+                        <span class="badge {% if item.is_active %}badge-ok{% else %}badge-danger{% endif %}">
+                            {% if item.is_active %}فعال{% else %}غیرفعال{% endif %}
+                        </span>
+                    </td>
+                    <td><span class="badge badge-warn">{{ item.active_loans_count }}</span></td>
+                    <td><a href="{% url 'library:member_detail' item.pk %}" class="btn btn-ghost" style="padding: 2px 12px; font-size: 0.85rem;">📋 جزئیات</a></td>
+                    
+                    {% elif type == 'loans' %}
+                    <td><a href="{% url 'library:book_detail' item.book.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ item.book.title }}</a></td>
+                    <td><a href="{% url 'library:member_detail' item.member.pk %}" style="color: var(--accent-600); text-decoration: none;">{{ item.member.full_name }}</a></td>
+                    <td>{{ item.loan_date|date:"Y/m/d" }}</td>
+                    <td>{{ item.due_date|date:"Y/m/d" }}</td>
+                    <td>
+                        {% if item.status == 'active' %}
+                            <span class="badge badge-warn">فعال</span>
+                            {% if item.is_overdue %}
+                            <span class="badge badge-danger">⏰ {{ item.days_overdue }} روز</span>
+                            {% endif %}
+                        {% elif item.status == 'returned' %}
+                            <span class="badge badge-ok">برگشت داده شده</span>
+                        {% else %}
+                            <span class="badge">{{ item.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.status == 'active' %}
+                        <a href="{% url 'library:loan_return' item.pk %}" class="btn btn-ghost" style="padding: 2px 12px; font-size: 0.85rem; color: var(--success);">✅ بازگشت</a>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 12px;">📭</div>
+        <p>موردی برای نمایش وجود ندارد.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

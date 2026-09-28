@@ -1,0 +1,188 @@
+{% extends 'library/base.html' %}
+
+{% block title %}جستجوی پیشرفته{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 16px 0;">🔍 جستجوی پیشرفته</h2>
+
+    <form method="get" id="advanced-search-form">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div style="position: relative;">
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">عنوان</label>
+                <input type="text" name="title" id="search-title" value="{{ query_params.title|default:'' }}" autocomplete="off" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                <div id="autocomplete-results" style="display: none; position: absolute; top: 100%; right: 0; left: 0; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-md); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">نویسنده</label>
+                <input type="text" name="author" value="{{ query_params.author|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">شابک</label>
+                <input type="text" name="isbn" value="{{ query_params.isbn|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">ناشر</label>
+                <input type="text" name="publisher" value="{{ query_params.publisher|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">سال نشر</label>
+                <input type="text" name="publish_year" value="{{ query_params.publish_year|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">موضوع</label>
+                <input type="text" name="subject" value="{{ query_params.subject|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">رده دیویی (از)</label>
+                <input type="text" name="dewey_from" value="{{ query_params.dewey_from|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">رده دیویی (تا)</label>
+                <input type="text" name="dewey_to" value="{{ query_params.dewey_to|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label style="display: block; font-weight: 600; margin-bottom: 4px;">مرتب‌سازی</label>
+                <select name="sort_by" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                    <option value="title" {% if request.GET.sort_by == 'title' %}selected{% endif %}>عنوان</option>
+                    <option value="author" {% if request.GET.sort_by == 'author' %}selected{% endif %}>نویسنده</option>
+                    <option value="publish_year" {% if request.GET.sort_by == 'publish_year' %}selected{% endif %}>سال نشر</option>
+                    <option value="created_at" {% if request.GET.sort_by == 'created_at' %}selected{% endif %}>تاریخ افزودن</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-top: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" name="only_available" value="1" {% if query_params.only_available %}checked{% endif %}>
+                <span>فقط کتاب‌های موجود</span>
+            </label>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;">
+            <button type="submit" class="btn btn-primary">🔍 جستجو</button>
+            <a href="{% url 'library:advanced_search' %}" class="btn btn-ghost">🗑️ پاک کردن فیلترها</a>
+        </div>
+    </form>
+</div>
+
+{% if is_search %}
+<div class="card" style="margin-top: 16px;">
+    <h3 style="margin: 0 0 12px 0;">📊 نتایج جستجو ({{ total_count }} کتاب)</h3>
+
+    {% if books %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>عنوان</th>
+                    <th>نویسنده</th>
+                    <th>ناشر</th>
+                    <th>سال</th>
+                    <th>موجودی</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for book in books %}
+                <tr>
+                    <td>
+                        <a href="{% url 'library:book_detail' book.pk %}" style="color: var(--accent-600); text-decoration: none; font-weight: 600;">
+                            {{ book.title }}
+                        </a>
+                    </td>
+                    <td>{{ book.author }}</td>
+                    <td>{{ book.publisher|default:'—' }}</td>
+                    <td>{{ book.publish_year|default:'—' }}</td>
+                    <td>
+                        <span class="badge {% if book.available_copies > 0 %}badge-ok{% else %}badge-danger{% endif %}">
+                            {{ book.available_copies }} از {{ book.total_copies }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'library:book_detail' book.pk %}" class="btn btn-ghost" style="padding: 2px 12px; font-size: 0.85rem;">📖 جزئیات</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 12px;">📭</div>
+        <p>کتابی با این مشخصات یافت نشد.</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+// ==================== Autocomplete ====================
+let autocompleteTimeout = null;
+
+document.getElementById('search-title').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    const resultsDiv = document.getElementById('autocomplete-results');
+
+    clearTimeout(autocompleteTimeout);
+
+    if (query.length < 2) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+
+    autocompleteTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/api/autocomplete/books/?q=${encodeURIComponent(query)}`, {
+                credentials: 'same-origin',
+            });
+            const data = await response.json();
+
+            if (data.results && data.results.length > 0) {
+                let html = '';
+                data.results.forEach(book => {
+                    const availColor = book.available > 0 ? 'var(--success)' : 'var(--danger)';
+                    html += `
+                        <div style="padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer;"
+                             onclick="selectBook(${book.id}, '${book.title.replace(/'/g, "\\'")}')"
+                             onmouseover="this.style.background='var(--neutral-50)'"
+                             onmouseout="this.style.background='#fff'">
+                            <div style="font-weight: 600; font-size: 0.95rem;">${book.title}</div>
+                            <div style="color: var(--text-muted); font-size: 0.85rem;">✍️ ${book.author || 'نامشخص'}</div>
+                            <div style="font-size: 0.8rem; margin-top: 4px;">
+                                <span style="color: ${availColor};">📚 موجود: ${book.available} از ${book.total}</span>
+                                ${book.isbn ? `<span style="color: var(--text-muted); margin-right: 8px;">🔢 ${book.isbn}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                resultsDiv.innerHTML = html;
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-muted);">نتیجه‌ای یافت نشد</div>';
+                resultsDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Autocomplete error:', error);
+        }
+    }, 300);
+});
+
+// بستن autocomplete هنگام کلیک بیرون
+document.addEventListener('click', function(e) {
+    const resultsDiv = document.getElementById('autocomplete-results');
+    const searchInput = document.getElementById('search-title');
+    if (!resultsDiv.contains(e.target) && e.target !== searchInput) {
+        resultsDiv.style.display = 'none';
+    }
+});
+
+// انتخاب کتاب از autocomplete
+function selectBook(id, title) {
+    document.getElementById('search-title').value = title;
+    document.getElementById('autocomplete-results').style.display = 'none';
+    // اختیاری: می‌توان مستقیماً به صفحه کتاب برود
+    // window.location.href = `/books/${id}/`;
+}
+</script>
+{% endblock %}
