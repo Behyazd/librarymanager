@@ -1,0 +1,67 @@
+<!-- Offline Status Badge -->
+<div id="offline-status" style="display: none; position: fixed; top: 10px; left: 10px; z-index: 9999; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"></div>
+
+<!-- Sync Status Button -->
+<button id="sync-button" onclick="manualSync()" style="display: none; position: fixed; bottom: 80px; left: 10px; z-index: 9999; background: var(--accent-500); color: #fff; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 1.2rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+    🔄
+</button>
+
+<script>
+// ==================== نمایش وضعیت Offline ====================
+function updateOfflineStatus() {
+    const statusDiv = document.getElementById('offline-status');
+    const syncButton = document.getElementById('sync-button');
+
+    if (!statusDiv) return;
+
+    if (OfflineManager.isOnline) {
+        statusDiv.style.display = 'none';
+        syncButton.style.display = 'none';
+    } else {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#ff6b6b';
+        statusDiv.style.color = '#fff';
+        statusDiv.textContent = '📵 حالت آفلاین';
+
+        // نمایش دکمه Sync فقط اگر صف خالی نیست
+        OfflineManager.getQueueCount().then(count => {
+            if (count > 0) {
+                syncButton.style.display = 'block';
+                syncButton.innerHTML = `🔄 ${count}`;
+            } else {
+                syncButton.style.display = 'none';
+            }
+        });
+    }
+}
+
+// ==================== Sync دستی ====================
+async function manualSync() {
+    if (!OfflineManager.isOnline) {
+        alert('❌ هنوز آفلاین هستید. لطفاً اتصال اینترنت خود را بررسی کنید.');
+        return;
+    }
+
+    const syncButton = document.getElementById('sync-button');
+    syncButton.innerHTML = '⏳';
+    syncButton.disabled = true;
+
+    await OfflineManager.syncChanges();
+    await updateOfflineStatus();
+
+    syncButton.innerHTML = '🔄';
+    syncButton.disabled = false;
+
+    alert('✅ تغییرات با موفقیت Sync شدند.');
+}
+
+// ==================== افزودن Listener ====================
+if (window.OfflineManager) {
+    OfflineManager.addListener((event) => {
+        updateOfflineStatus();
+    });
+
+    // بروزرسانی اولیه
+    setTimeout(updateOfflineStatus, 1000);
+}
+</script>
