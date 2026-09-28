@@ -1,123 +1,35 @@
 # library/api_views.py
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.files.uploadedfile import UploadedFile
-from .marc_parser import parse_marc_file
-
 from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
+from django.db.models import Q
 from .models import Book, Member, Loan, Notification
 from .serializers import (
     BookSerializer, MemberSerializer, LoanSerializer,
     NotificationSerializer, RegisterSerializer, UserSerializer
 )
+from .marc_parser import parse_marc_file
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def parse_marc(request):
-    """
-    دریافت فایل MARC و برگرداندن فیلدهای استخراج شده به JSON
-    """
-    if 'file' not in request.FILES:
-        return Response(
-            {'error': 'فایل MARC ارسال نشده است'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+# ==================== Book ViewSet ====================
 
-    uploaded_file = request.FILES['file']
-
-    # بررسی پسوند فایل
-    if not uploaded_file.name.endswith(('.txt', '.mrc', '.marc')):
-        return Response(
-            {'error': 'فرمت فایل باید txt، mrc یا marc باشد'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        file_bytes = uploaded_file.read()
-        records = parse_marc_file(file_bytes)
-
-        if not records:
-            return Response(
-                {'error': 'هیچ رکورد MARC معتبری یافت نشد'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response({
-            'count': len(records),
-            'records': records,
-        })
-
-    except Exception as e:
-        return Response(
-            {'error': f'خطا در پردازش فایل: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-class AuthViewSet(viewsets.ViewSet):
-    # library/api_views.py (در AuthViewSet)
-    @action(detail=False, methods=['post'])
-    def simple_login(self, request):
-        """ورود ساده با username و password"""
-        username = request.data.get('username')
-        password = request.data.get('password')
-
-        if not username or not password:
-            return Response(
-                {'error': 'نام کاربری و رمز عبور الزامی است'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            return Response(
-                {'error': 'نام کاربری یا رمز عبور اشتباه است'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        if not user.check_password(password):
-            return Response(
-                {'error': 'نام کاربری یا رمز عبور اشتباه است'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UserSerializer(user).data
-        })
-
-
-    @action(detail=False, methods=['post'])
-    def register(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': UserSerializer(user).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# ========== Book ViewSet ==========
 class BookViewSet(viewsets.ModelViewSet):
+    """API برای مدیریت کتاب‌ها"""
     queryset = Book.objects.all().order_by('title')
     serializer_class = BookSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'author', 'isbn', 'publisher']
     ordering_fields = ['title', 'author', 'created_at']
+
+    @action(detail=True, methods=['get'])
+    def loans(self, request, pk=None):
+        book = self.get_object()
+        loans = Loan.objects.filter(book=book)
+        serializer = LoanSerializer(loans, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def borrow(self, request, pk=None):
@@ -155,17 +67,35 @@ class BookViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-# ========== Member ViewSet ==========
+# ==================== Member ViewSet ====================
+
 class MemberViewSet(viewsets.ModelViewSet):
+    """API برای مدیریت اعضا"""
     queryset = Member.objects.all().order_by('last_name', 'first_name')
     serializer_class = MemberSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['first_name', 'last_name', 'national_id', 'phone', 'member_code']
     ordering_fields = ['first_name', 'last_name', 'join_date']
 
+    @action(detail=True, methods=['get'])
+    def loans(self, request, pk=None):
+        member = self.get_object()
+        loans = Loan.objects.filter(member=member)
+        serializer = LoanSerializer(loans, many=True)
+        return Response(serializer.data)
 
-# ========== Loan ViewSet ==========
+    @action(detail=True, methods=['get'])
+    def active_loans(self, request, pk=None):
+        member = self.get_object()
+        loans = Loan.objects.filter(member=member, status='active')
+        serializer = LoanSerializer(loans, many=True)
+        return Response(serializer.data)
+
+
+# ==================== Loan ViewSet ====================
+
 class LoanViewSet(viewsets.ModelViewSet):
+    """API برای مدیریت امانت‌ها"""
     queryset = Loan.objects.all().order_by('-loan_date')
     serializer_class = LoanSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
@@ -202,8 +132,10 @@ class LoanViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-# ========== Notification ViewSet ==========
+# ==================== Notification ViewSet ====================
+
 class NotificationViewSet(viewsets.ModelViewSet):
+    """API برای مدیریت اعلان‌ها"""
     queryset = Notification.objects.all().order_by('-created_at')
     serializer_class = NotificationSerializer
     filter_backends = [filters.SearchFilter]
@@ -215,45 +147,225 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return Response({'message': 'همه اعلان‌ها خوانده شدند'})
 
 
-# library/api_views.py (در انتهای فایل)
+# ==================== Auth ViewSet ====================
 
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
+class AuthViewSet(viewsets.ViewSet):
+    """API برای احراز هویت"""
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def register(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'user': UserSerializer(user).data,
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def login(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response(
+                {'error': 'نام کاربری و رمز عبور الزامی است'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'نام کاربری یا رمز عبور اشتباه است'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if not user.check_password(password):
+            return Response(
+                {'error': 'نام کاربری یا رمز عبور اشتباه است'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'user': UserSerializer(user).data,
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        })
 
 
-@csrf_exempt
+# ==================== Simple Login ====================
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def simple_login(request):
-    """یک ویو ساده برای تست ورود"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Only POST allowed'}, status=405)
-
-    try:
-        data = json.loads(request.body)
-    except:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
-    username = data.get('username')
-    password = data.get('password')
+    """ورود ساده با username و password"""
+    username = request.data.get('username')
+    password = request.data.get('password')
 
     if not username or not password:
-        return JsonResponse({'error': 'Username and password required'}, status=400)
+        return Response(
+            {'error': 'نام کاربری و رمز عبور الزامی است'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     try:
         user = User.objects.get(username=username)
     except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=401)
+        return Response(
+            {'error': 'نام کاربری یا رمز عبور اشتباه است'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
     if not user.check_password(password):
-        return JsonResponse({'error': 'Wrong password'}, status=401)
+        return Response(
+            {'error': 'نام کاربری یا رمز عبور اشتباه است'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
     refresh = RefreshToken.for_user(user)
-    return JsonResponse({
+    return Response({
         'access': str(refresh.access_token),
         'refresh': str(refresh),
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-        }
+        'user': UserSerializer(user).data,
+    })
+
+
+# ==================== MARC Parser Views ====================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def parse_marc(request):
+    """دریافت یک یا چند فایل MARC و برگرداندن فیلدهای استخراج شده"""
+    files = request.FILES.getlist('files')
+
+    if not files:
+        if 'file' in request.FILES:
+            files = [request.FILES['file']]
+        else:
+            return Response(
+                {'error': 'فایل MARC ارسال نشده است'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    all_records = []
+    errors = []
+
+    for uploaded_file in files:
+        if not uploaded_file.name.endswith(('.txt', '.mrc', '.marc')):
+            errors.append(f"فرمت فایل {uploaded_file.name} پشتیبانی نمی‌شود")
+            continue
+
+        try:
+            file_bytes = uploaded_file.read()
+            records = parse_marc_file(file_bytes)
+
+            # اضافه کردن نام فایل به هر رکورد
+            for record in records:
+                record['source_file'] = uploaded_file.name
+
+            all_records.extend(records)
+        except Exception as e:
+            errors.append(f"خطا در پردازش {uploaded_file.name}: {str(e)}")
+
+    if not all_records:
+        return Response(
+            {'error': 'هیچ رکورد MARC معتبری یافت نشد', 'errors': errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    return Response({
+        'count': len(all_records),
+        'files_count': len(files),
+        'records': all_records,
+        'errors': errors,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def import_marc(request):
+    """دریافت یک یا چند فایل MARC و ذخیره همه رکوردها در دیتابیس"""
+    files = request.FILES.getlist('files')
+
+    if not files:
+        if 'file' in request.FILES:
+            files = [request.FILES['file']]
+        else:
+            return Response(
+                {'error': 'فایل MARC ارسال نشده است'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    imported_count = 0
+    skipped_count = 0
+    total_records = 0
+    errors = []
+    imported_books = []
+
+    for uploaded_file in files:
+        if not uploaded_file.name.endswith(('.txt', '.mrc', '.marc')):
+            errors.append(f"فرمت فایل {uploaded_file.name} پشتیبانی نمی‌شود")
+            continue
+
+        try:
+            file_bytes = uploaded_file.read()
+            records = parse_marc_file(file_bytes)
+            total_records += len(records)
+
+            for record in records:
+                try:
+                    isbn = record.get('isbn', '').strip()
+                    if isbn:
+                        existing = Book.objects.filter(isbn=isbn).first()
+                        if existing:
+                            skipped_count += 1
+                            continue
+
+                    book = Book.objects.create(
+                        title=record.get('title', 'بدون عنوان') or 'بدون عنوان',
+                        subtitle=record.get('subtitle', ''),
+                        author=record.get('author', ''),
+                        author_dates=record.get('author_dates', ''),
+                        isbn=isbn if isbn else None,
+                        publisher=record.get('publisher', ''),
+                        publish_place=record.get('publish_place', ''),
+                        publish_year=record.get('publish_year', ''),
+                        pages=record.get('pages', ''),
+                        dimensions=record.get('dimensions', ''),
+                        dewey_class=record.get('dewey_class', ''),
+                        lcc_class=record.get('lcc_class', ''),
+                        national_biblio_number=record.get('national_biblio_number', ''),
+                        subject=record.get('subject', ''),
+                        notes=record.get('notes', ''),
+                        fapa=record.get('fapa', ''),
+                        marc_record=record.get('marc_record', ''),
+                        statement_of_responsibility=record.get('statement_of_responsibility', ''),
+                        added_by=request.user,
+                    )
+                    imported_count += 1
+                    imported_books.append({
+                        'id': book.id,
+                        'title': book.title,
+                        'author': book.author,
+                    })
+
+                except Exception as e:
+                    errors.append(f"خطا در ذخیره رکورد از {uploaded_file.name}: {str(e)}")
+
+        except Exception as e:
+            errors.append(f"خطا در پردازش {uploaded_file.name}: {str(e)}")
+
+    return Response({
+        'success': True,
+        'total': total_records,
+        'files_count': len(files),
+        'imported': imported_count,
+        'skipped': skipped_count,
+        'errors': errors,
+        'books': imported_books,
     })

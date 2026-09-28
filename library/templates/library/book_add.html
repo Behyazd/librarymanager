@@ -8,21 +8,48 @@
 
     <!-- ==================== بخش بارگذاری MARC ==================== -->
     <div style="background: var(--neutral-50); padding: 16px; border-radius: var(--radius-md); margin-bottom: 24px;">
-        <h3 style="margin: 0 0 8px 0; font-size: 1.1rem;">📁 بارگذاری از فایل MARC</h3>
+        <h3 style="margin: 0 0 8px 0; font-size: 1.1rem;">📁 بارگذاری از فایل‌های MARC</h3>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;">
-            فایل MARC (txt یا mrc) خود را انتخاب کنید تا فیلدها به صورت خودکار پر شوند.
+            می‌توانید چند فایل MARC (txt یا mrc) را همزمان انتخاب کنید.
         </p>
 
-        <input type="file" id="marc-file" accept=".txt,.mrc,.marc" style="margin-bottom: 8px;">
-        <button type="button" id="parse-marc-btn" class="btn btn-primary" onclick="parseMarc()">
-            🔍 پردازش فایل MARC
-        </button>
+        <input type="file" id="marc-files" accept=".txt,.mrc,.marc" multiple style="margin-bottom: 8px;">
 
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+            <button type="button" class="btn btn-primary" onclick="parseMarc()">
+                🔍 پردازش فایل‌ها
+            </button>
+            <button type="button" class="btn" style="background: var(--success); color: #fff;" onclick="importAllMarc()">
+                📥 ذخیره همه رکوردها
+            </button>
+            <button type="button" class="btn btn-ghost" onclick="clearFiles()">
+                🗑️ پاک کردن انتخاب
+            </button>
+        </div>
+
+        <div id="files-info" style="margin-top: 8px; font-size: 0.9rem; color: var(--text-muted);"></div>
         <div id="marc-status" style="margin-top: 8px; font-size: 0.9rem;"></div>
+
+        <!-- ==================== ناوبری بین رکوردها ==================== -->
+        <div id="records-nav" style="display: none; margin-top: 16px; padding: 12px; background: #fff; border-radius: var(--radius-md); border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <strong>رکورد <span id="current-record-num">1</span> از <span id="total-records-num">1</span></strong>
+                    <span id="current-record-source" style="color: var(--text-muted); font-size: 0.85rem; margin-right: 8px;"></span>
+                    <span id="saved-badge" style="display: none; background: var(--success); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">✅ ذخیره شده</span>
+                </div>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                    <button type="button" class="btn btn-ghost" onclick="prevRecord()" id="prev-btn">← قبلی</button>
+                    <input type="number" id="record-jump" min="1" value="1" style="width: 60px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); text-align: center;">
+                    <button type="button" class="btn btn-ghost" onclick="jumpToRecord()">پرش</button>
+                    <button type="button" class="btn btn-ghost" onclick="nextRecord()" id="next-btn">بعدی →</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ==================== فرم کتاب ==================== -->
-    <form method="post" id="book-form">
+    <form method="post" id="book-form" onsubmit="return submitSingleBook(event)">
         {% csrf_token %}
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -39,8 +66,16 @@
                 <input type="text" id="author" name="author" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
+                <label for="author_dates" style="display: block; font-weight: 600; margin-bottom: 4px;">تاریخ نویسنده</label>
+                <input type="text" id="author_dates" name="author_dates" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
                 <label for="isbn" style="display: block; font-weight: 600; margin-bottom: 4px;">شابک</label>
                 <input type="text" id="isbn" name="isbn" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
+                <label for="national_biblio_number" style="display: block; font-weight: 600; margin-bottom: 4px;">شماره کتابشناسی ملی</label>
+                <input type="text" id="national_biblio_number" name="national_biblio_number" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
                 <label for="publisher" style="display: block; font-weight: 600; margin-bottom: 4px;">ناشر</label>
@@ -59,6 +94,10 @@
                 <input type="text" id="pages" name="pages" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
+                <label for="dimensions" style="display: block; font-weight: 600; margin-bottom: 4px;">ابعاد</label>
+                <input type="text" id="dimensions" name="dimensions" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+            </div>
+            <div>
                 <label for="dewey_class" style="display: block; font-weight: 600; margin-bottom: 4px;">رده دیویی</label>
                 <input type="text" id="dewey_class" name="dewey_class" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
@@ -67,8 +106,8 @@
                 <input type="text" id="lcc_class" name="lcc_class" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
-                <label for="national_biblio_number" style="display: block; font-weight: 600; margin-bottom: 4px;">شماره کتابشناسی ملی</label>
-                <input type="text" id="national_biblio_number" name="national_biblio_number" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                <label for="fapa" style="display: block; font-weight: 600; margin-bottom: 4px;">وضعیت فهرست‌نویسی</label>
+                <input type="text" id="fapa" name="fapa" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
             <div>
                 <label for="total_copies" style="display: block; font-weight: 600; margin-bottom: 4px;">تعداد کل نسخه‌ها</label>
@@ -89,77 +128,364 @@
         <input type="hidden" id="marc_record" name="marc_record">
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-            <button type="submit" class="btn btn-primary">➕ افزودن کتاب</button>
+            <button type="submit" class="btn btn-primary" id="submit-btn">➕ افزودن این کتاب</button>
             <a href="{% url 'library:book_list' %}" class="btn btn-ghost">← انصراف</a>
         </div>
     </form>
 </div>
 
-<!-- ==================== JavaScript ==================== -->
 <script>
-async function parseMarc() {
-    const fileInput = document.getElementById('marc-file');
-    const statusDiv = document.getElementById('marc-status');
+// ==================== متغیرهای سراسری ====================
+let allRecords = [];
+let currentRecordIndex = 0;
 
-    if (!fileInput.files.length) {
-        statusDiv.innerHTML = '<span style="color: red;">❌ لطفاً یک فایل MARC انتخاب کنید</span>';
+
+// ==================== نمایش اطلاعات فایل‌های انتخاب شده ====================
+document.getElementById('marc-files').addEventListener('change', function(e) {
+    const filesInfo = document.getElementById('files-info');
+    const files = e.target.files;
+
+    if (files.length === 0) {
+        filesInfo.innerHTML = '';
         return;
     }
 
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
+    let html = `<strong>${files.length} فایل انتخاب شده:</strong><ul style="margin: 4px 0; padding-right: 20px;">`;
+    for (let i = 0; i < files.length; i++) {
+        html += `<li>${files[i].name} (${(files[i].size / 1024).toFixed(1)} KB)</li>`;
+    }
+    html += '</ul>';
+    filesInfo.innerHTML = html;
 
-    statusDiv.innerHTML = '<span style="color: blue;">⏳ در حال پردازش...</span>';
+    allRecords = [];
+    currentRecordIndex = 0;
+    document.getElementById('records-nav').style.display = 'none';
+    document.getElementById('marc-status').innerHTML = '';
+});
+
+
+// ==================== پاک کردن انتخاب فایل‌ها ====================
+function clearFiles() {
+    document.getElementById('marc-files').value = '';
+    document.getElementById('files-info').innerHTML = '';
+    document.getElementById('marc-status').innerHTML = '';
+    document.getElementById('records-nav').style.display = 'none';
+    allRecords = [];
+    currentRecordIndex = 0;
+    clearForm();
+}
+
+
+// ==================== پاک کردن فرم ====================
+function clearForm() {
+    const fields = ['title', 'subtitle', 'author', 'author_dates', 'isbn',
+                    'publisher', 'publish_place', 'publish_year', 'pages',
+                    'dimensions', 'dewey_class', 'lcc_class', 'national_biblio_number',
+                    'fapa', 'subject', 'notes', 'marc_record'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('total_copies').value = '1';
+    document.getElementById('saved-badge').style.display = 'none';
+}
+
+
+// ==================== پردازش همه فایل‌ها ====================
+async function parseMarc() {
+    const fileInput = document.getElementById('marc-files');
+    const statusDiv = document.getElementById('marc-status');
+    const navDiv = document.getElementById('records-nav');
+
+    if (!fileInput.files.length) {
+        statusDiv.innerHTML = '<span style="color: red;">❌ لطفاً حداقل یک فایل MARC انتخاب کنید</span>';
+        return;
+    }
+
+    const formData = new FormData();
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('files', fileInput.files[i]);
+    }
+
+    statusDiv.innerHTML = `<span style="color: blue;">⏳ در حال پردازش ${fileInput.files.length} فایل...</span>`;
 
     try {
-        const token = localStorage.getItem('access_token');
-
         const response = await fetch('/api/books/parse-marc/', {
             method: 'POST',
             headers: {
-                'Authorization': token ? `Bearer ${token}` : '',
                 'X-CSRFToken': getCookie('csrftoken'),
             },
+            credentials: 'same-origin',
             body: formData,
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            statusDiv.innerHTML = `<span style="color: red;">❌ ${data.error || 'خطا در پردازش'}</span>`;
+            statusDiv.innerHTML = `<span style="color: red;">❌ ${data.error || data.detail || 'خطا در پردازش'}</span>`;
             return;
         }
 
         if (data.count === 0) {
             statusDiv.innerHTML = '<span style="color: red;">❌ هیچ رکوردی یافت نشد</span>';
+            navDiv.style.display = 'none';
             return;
         }
 
-        const record = data.records[0];
+        allRecords = data.records;
+        currentRecordIndex = 0;
 
-        document.getElementById('title').value = record.title || '';
-        document.getElementById('subtitle').value = record.subtitle || '';
-        document.getElementById('author').value = record.author || '';
-        document.getElementById('isbn').value = record.isbn || '';
-        document.getElementById('publisher').value = record.publisher || '';
-        document.getElementById('publish_place').value = record.publish_place || '';
-        document.getElementById('publish_year').value = record.publish_year || '';
-        document.getElementById('pages').value = record.pages || '';
-        document.getElementById('dewey_class').value = record.dewey_class || '';
-        document.getElementById('lcc_class').value = record.lcc_class || '';
-        document.getElementById('national_biblio_number').value = record.national_biblio_number || '';
-        document.getElementById('subject').value = record.subject || '';
-        document.getElementById('notes').value = record.notes || '';
-        document.getElementById('marc_record').value = record.marc_record || '';
+        displayRecord(0);
 
-        statusDiv.innerHTML = `<span style="color: green;">✅ ${data.count} رکورد یافت شد. فیلدها پر شدند.</span>`;
+        navDiv.style.display = 'block';
+        document.getElementById('total-records-num').textContent = allRecords.length;
+        document.getElementById('record-jump').max = allRecords.length;
+
+        statusDiv.innerHTML = `<span style="color: green;">✅ ${data.count} رکورد از ${data.files_count || fileInput.files.length} فایل یافت شد.</span>`;
+
+        if (data.errors && data.errors.length > 0) {
+            let errHtml = '<br><strong style="color: red;">خطاها:</strong><ul>';
+            data.errors.forEach(err => {
+                errHtml += `<li style="color: red;">${err}</li>`;
+            });
+            errHtml += '</ul>';
+            statusDiv.innerHTML += errHtml;
+        }
 
     } catch (error) {
         statusDiv.innerHTML = `<span style="color: red;">❌ خطا: ${error.message}</span>`;
     }
 }
 
+
+// ==================== نمایش رکورد در فرم ====================
+function displayRecord(index) {
+    if (index < 0 || index >= allRecords.length) return;
+
+    currentRecordIndex = index;
+    const record = allRecords[index];
+
+    document.getElementById('title').value = record.title || '';
+    document.getElementById('subtitle').value = record.subtitle || '';
+    document.getElementById('author').value = record.author || '';
+    document.getElementById('author_dates').value = record.author_dates || '';
+    document.getElementById('isbn').value = record.isbn || '';
+    document.getElementById('publisher').value = record.publisher || '';
+    document.getElementById('publish_place').value = record.publish_place || '';
+    document.getElementById('publish_year').value = record.publish_year || '';
+    document.getElementById('pages').value = record.pages || '';
+    document.getElementById('dimensions').value = record.dimensions || '';
+    document.getElementById('dewey_class').value = record.dewey_class || '';
+    document.getElementById('lcc_class').value = record.lcc_class || '';
+    document.getElementById('national_biblio_number').value = record.national_biblio_number || '';
+    document.getElementById('fapa').value = record.fapa || '';
+    document.getElementById('subject').value = record.subject || '';
+    document.getElementById('notes').value = record.notes || '';
+    document.getElementById('marc_record').value = record.marc_record || '';
+
+    // بروزرسانی شمارنده
+    document.getElementById('current-record-num').textContent = index + 1;
+    document.getElementById('record-jump').value = index + 1;
+
+    // نمایش نام فایل مبدأ
+    const sourceSpan = document.getElementById('current-record-source');
+    if (record.source_file) {
+        sourceSpan.textContent = `(از فایل: ${record.source_file})`;
+    } else {
+        sourceSpan.textContent = '';
+    }
+
+    // مخفی کردن بج "ذخیره شده"
+    document.getElementById('saved-badge').style.display = 'none';
+
+    updateNavButtons();
+}
+
+
+// ==================== بروزرسانی دکمه‌های ناوبری ====================
+function updateNavButtons() {
+    document.getElementById('prev-btn').disabled = (currentRecordIndex === 0);
+    document.getElementById('next-btn').disabled = (currentRecordIndex === allRecords.length - 1);
+    document.getElementById('total-records-num').textContent = allRecords.length;
+
+    if (allRecords.length === 0) {
+        document.getElementById('records-nav').style.display = 'none';
+    } else {
+        document.getElementById('records-nav').style.display = 'block';
+    }
+}
+
+
+// ==================== ناوبری ====================
+function prevRecord() {
+    if (currentRecordIndex > 0) {
+        displayRecord(currentRecordIndex - 1);
+    }
+}
+
+function nextRecord() {
+    if (currentRecordIndex < allRecords.length - 1) {
+        displayRecord(currentRecordIndex + 1);
+    }
+}
+
+function jumpToRecord() {
+    const num = parseInt(document.getElementById('record-jump').value);
+    if (num >= 1 && num <= allRecords.length) {
+        displayRecord(num - 1);
+    }
+}
+
+
+// ==================== ذخیره تک کتاب (submit فرم) ====================
+async function submitSingleBook(event) {
+    event.preventDefault();
+
+    const statusDiv = document.getElementById('marc-status');
+    const submitBtn = document.getElementById('submit-btn');
+
+    // اگر رکوردی در لیست نیست، از فرم عادی استفاده کن
+    if (allRecords.length === 0) {
+        document.getElementById('book-form').submit();
+        return false;
+    }
+
+    // گرفتن داده‌های فرم
+    const form = document.getElementById('book-form');
+    const formData = new FormData(form);
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ در حال ذخیره...';
+
+    try {
+        const response = await fetch('/books/add/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            credentials: 'same-origin',
+            body: formData,
+        });
+
+        // اگر موفق بود (ریدایرکت 302)
+        if (response.redirected || response.ok) {
+            // حذف رکورد ذخیره شده از لیست
+            allRecords.splice(currentRecordIndex, 1);
+
+            // اگر لیست خالی شد
+            if (allRecords.length === 0) {
+                statusDiv.innerHTML = '<span style="color: green;">✅ همه رکوردها ذخیره شدند! حالا به لیست کتاب‌ها بروید.</span>';
+                document.getElementById('records-nav').style.display = 'none';
+                clearForm();
+
+                // نمایش لینک به لیست کتاب‌ها
+                setTimeout(() => {
+                    window.location.href = '/books/';
+                }, 1500);
+                return false;
+            }
+
+            // اگر رکورد بعدی وجود ندارد، به قبلی برو
+            if (currentRecordIndex >= allRecords.length) {
+                currentRecordIndex = allRecords.length - 1;
+            }
+
+            // نمایش رکورد بعدی
+            displayRecord(currentRecordIndex);
+
+            // نمایش پیام موفقیت
+            statusDiv.innerHTML = `<span style="color: green;">✅ کتاب ذخیره شد. ${allRecords.length} رکورد باقی مانده.</span>`;
+
+        } else {
+            // خطا
+            const data = await response.json();
+            statusDiv.innerHTML = `<span style="color: red;">❌ خطا: ${data.error || 'خطا در ذخیره'}</span>`;
+        }
+
+    } catch (error) {
+        // در صورت خطای شبکه، به صورت معمولی submit کن
+        form.submit();
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '➕ افزودن این کتاب';
+    }
+
+    return false;
+}
+
+
+// ==================== ذخیره همه رکوردها ====================
+async function importAllMarc() {
+    const fileInput = document.getElementById('marc-files');
+    const statusDiv = document.getElementById('marc-status');
+
+    if (!fileInput.files.length) {
+        statusDiv.innerHTML = '<span style="color: red;">❌ لطفاً حداقل یک فایل MARC انتخاب کنید</span>';
+        return;
+    }
+
+    const formData = new FormData();
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('files', fileInput.files[i]);
+    }
+
+    statusDiv.innerHTML = `<span style="color: blue;">⏳ در حال ذخیره رکوردها از ${fileInput.files.length} فایل...</span>`;
+
+    try {
+        const response = await fetch('/api/books/import-marc/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            credentials: 'same-origin',
+            body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            statusDiv.innerHTML = `<span style="color: red;">❌ ${data.error || data.detail || 'خطا در ذخیره'}</span>`;
+            return;
+        }
+
+        let message = `✅ ${data.imported} رکورد از ${data.total} رکورد در ${data.files_count || fileInput.files.length} فایل ذخیره شد.`;
+        if (data.skipped > 0) {
+            message += ` (${data.skipped} تکراری نادیده گرفته شد)`;
+        }
+
+        statusDiv.innerHTML = `<span style="color: green;">${message}</span>`;
+
+        // پاک کردن لیست و مخفی کردن ناوبری
+        allRecords = [];
+        currentRecordIndex = 0;
+        document.getElementById('records-nav').style.display = 'none';
+        clearForm();
+
+        if (data.books && data.books.length > 0) {
+            let linksHtml = '<br><br><strong>کتاب‌های ذخیره شده:</strong><ul style="max-height: 300px; overflow-y: auto;">';
+            data.books.forEach(book => {
+                linksHtml += `<li><a href="/books/${book.id}/" target="_blank">${book.title} - ${book.author}</a></li>`;
+            });
+            linksHtml += '</ul>';
+            statusDiv.innerHTML += linksHtml;
+        }
+
+        if (data.errors && data.errors.length > 0) {
+            let errHtml = '<br><br><strong style="color: red;">خطاها:</strong><ul>';
+            data.errors.forEach(err => {
+                errHtml += `<li style="color: red;">${err}</li>`;
+            });
+            errHtml += '</ul>';
+            statusDiv.innerHTML += errHtml;
+        }
+
+    } catch (error) {
+        statusDiv.innerHTML = `<span style="color: red;">❌ خطا: ${error.message}</span>`;
+    }
+}
+
+
+// ==================== دریافت CSRF Token ====================
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {

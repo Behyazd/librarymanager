@@ -320,8 +320,8 @@ def book_edit(request, pk):
 
     if request.method == 'POST':
         try:
-            title = request.POST.get('title')
-            isbn = request.POST.get('isbn', '').strip()
+            title = request.POST.get('title', '').strip()
+            isbn = request.POST.get('isbn', '').strip() or None
 
             if not title:
                 messages.error(request, 'عنوان کتاب الزامی است.')
@@ -329,18 +329,29 @@ def book_edit(request, pk):
 
             # بررسی تکراری بودن شابک (به جز خود کتاب)
             if isbn:
-                existing_book = Book.objects.filter(isbn=isbn).exclude(pk=pk).first()
-                if existing_book:
-                    messages.error(request,
-                                   f'❗ کتابی با این شابک ("{isbn}") قبلاً در سیستم ثبت شده است: "{existing_book.title}"')
+                existing = Book.objects.filter(isbn=isbn).exclude(pk=pk).first()
+                if existing:
+                    messages.error(request, f'کتابی با این شابک قبلاً ثبت شده: {existing.title}')
                     return render(request, 'library/book_edit.html', {'book': book})
 
             # به‌روزرسانی کتاب
             book.title = title
+            book.subtitle = request.POST.get('subtitle', '')
             book.author = request.POST.get('author', '')
+            book.author_dates = request.POST.get('author_dates', '')
+            book.isbn = isbn
+            book.national_biblio_number = request.POST.get('national_biblio_number', '')
             book.publisher = request.POST.get('publisher', '')
+            book.publish_place = request.POST.get('publish_place', '')
             book.publish_year = request.POST.get('publish_year', '')
-            book.isbn = isbn if isbn else None
+            book.pages = request.POST.get('pages', '')
+            book.dimensions = request.POST.get('dimensions', '')
+            book.dewey_class = request.POST.get('dewey_class', '')
+            book.lcc_class = request.POST.get('lcc_class', '')
+            book.fapa = request.POST.get('fapa', '')
+            book.location = request.POST.get('location', '')
+            book.subject = request.POST.get('subject', '')
+            book.notes = request.POST.get('notes', '')
             book.total_copies = int(request.POST.get('total_copies', 1))
             book.save()
 
