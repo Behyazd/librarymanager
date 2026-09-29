@@ -4,35 +4,22 @@ Django settings for library_project project.
 
 import os
 from pathlib import Path
-import dj_database_url
 from datetime import timedelta
 
-# ==================== BASE ====================
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 # ==================== SECURITY ====================
 SECRET_KEY = os.environ.get(
     'SECRET_KEY',
-    'django-insecure-temporary-key-change-in-production'
+    'django-insecure-cn2^_(nl1qw7g)(hr-cf--hh+w8=fvx228^atw+*_@wrg+#9y!'
 )
 
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '172.19.8.216']
+ALLOWED_HOSTS = ['*']
 
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://librarymanager-fvth.onrender.com',
-    'https://*.onrender.com',
-    'https://behyazd.pythonanywhere.com',
-    'https://*.median.co',
-    'https://*.median.co.',
-    'https://*.gonative.io',
-    'https://*.gonative.io.',
-    'https://*.trycloudflare.com',
-    'https://*.lhr.life',
-    'https://*.localhost.run',
-]
 
 # ==================== APPLICATION DEFINITION ====================
 INSTALLED_APPS = [
@@ -82,16 +69,27 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'library_project.wsgi.application'
 
+
 # ==================== DATABASE ====================
-# در محیط تولید (Render) از PostgreSQL استفاده می‌کند
-# در محیط محلی از SQLite استفاده می‌کند
 DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'library_db',
+        'USER': 'postgres',
+        'PASSWORD': '3052',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
+
+# برای PythonAnywhere رایگان، از این تنظیمات استفاده کنید:
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
 
 # ==================== PASSWORD VALIDATION ====================
 AUTH_PASSWORD_VALIDATORS = [
@@ -101,28 +99,31 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+
 # ==================== INTERNATIONALIZATION ====================
 LANGUAGE_CODE = 'fa-ir'
 TIME_ZONE = 'Asia/Tehran'
 USE_I18N = True
 USE_TZ = True
 
-# ==================== STATIC FILES ====================
+
+# ==================== STATIC & MEDIA ====================
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
-# WhiteNoise برای سرو فایل‌های استاتیک در تولید
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
-
-# ==================== MEDIA FILES ====================
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# WhiteNoise for static files in production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
 
 # ==================== AUTHENTICATION ====================
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
 
 # ==================== REST FRAMEWORK ====================
 REST_FRAMEWORK = {
@@ -141,6 +142,7 @@ REST_FRAMEWORK = {
     ),
 }
 
+
 # ==================== JWT ====================
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
@@ -150,17 +152,23 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+
 # ==================== CORS ====================
 CORS_ALLOW_ALL_ORIGINS = True
 
-# برای تولید، این را جایگزین کنید:
-# CORS_ALLOWED_ORIGINS = [
-#     'https://behyazd.pythonanywhere.com',
-#     'https://librarymanager.onrender.com',
-#     'https://*.median.co',
-# ]
 
-# ==================== PWA ====================
+# ==================== CSRF ====================
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.pythonanywhere.com',
+    'https://*.lhr.life',
+    'https://*.localhost.run',
+    'https://*.trycloudflare.com',
+    'https://*.ngrok-free.app',
+    'https://*.ngrok.io',
+]
+
+
+# ==================== PWA SETTINGS ====================
 PWA_APP_NAME = 'کتابخانه من'
 PWA_APP_DESCRIPTION = "مدیریت کتابخانه شخصی"
 PWA_APP_THEME_COLOR = '#0A76D6'
@@ -174,31 +182,62 @@ PWA_APP_ICONS = [
     {
         'src': '/static/icons/icon-192x192.png',
         'sizes': '192x192',
-        'type': 'image/png'
+        'type': 'image/png',
+        'purpose': 'any'
     },
     {
         'src': '/static/icons/icon-512x512.png',
         'sizes': '512x512',
-        'type': 'image/png'
+        'type': 'image/png',
+        'purpose': 'any'
+    },
+    {
+        'src': '/static/icons/icon-192x192.png',
+        'sizes': '192x192',
+        'type': 'image/png',
+        'purpose': 'maskable'
+    },
+    {
+        'src': '/static/icons/icon-512x512.png',
+        'sizes': '512x512',
+        'type': 'image/png',
+        'purpose': 'maskable'
     }
 ]
 PWA_APP_DIR = 'rtl'
 PWA_APP_LANG = 'fa'
 PWA_APP_DEBUG_MODE = False
+PWA_APP_SHORTCUTS = [
+    {
+        'name': 'جستجوی پیشرفته',
+        'url': '/books/advanced-search/',
+        'description': 'جستجو در کتاب‌ها'
+    },
+    {
+        'name': 'افزودن کتاب',
+        'url': '/books/add/',
+        'description': 'افزودن کتاب جدید'
+    },
+    {
+        'name': 'گزارش‌ها',
+        'url': '/reports/',
+        'description': 'مشاهده گزارش‌ها'
+    }
+]
+
 
 # ==================== DEFAULT AUTO FIELD ====================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
 # ==================== SECURITY (PRODUCTION) ====================
-# این تنظیمات فقط در محیط تولید (DEBUG=False) اعمال می‌شوند
 if not DEBUG:
-    SECURE_SSL_REDIRECT = False
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_HSTS_SECONDS = 0  # 1 سال
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True

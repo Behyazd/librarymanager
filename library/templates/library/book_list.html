@@ -5,12 +5,32 @@
 {% block content %}
 <div class="card">
     <div class="search-bar">
-        <form method="get" style="display: flex; gap: 8px; width: 100%;">
-            <input type="text" name="q" placeholder="جستجوی کتاب بر اساس عنوان، نویسنده یا شابک..." value="{{ query|default:'' }}">
+        <form method="get" style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+            <input type="text" name="q" placeholder="جستجوی کتاب بر اساس عنوان، نویسنده یا شابک..." value="{{ query|default:'' }}" style="flex: 1; min-width: 200px;">
             <button type="submit" class="btn btn-primary">🔍 جستجو</button>
             <a href="{% url 'library:book_add' %}" class="btn btn-ghost">➕ افزودن کتاب</a>
             <a href="{% url 'library:book_search' %}" class="btn btn-ghost">🌐 جستجوی آنلاین</a>
         </form>
+    </div>
+
+    <!-- ==================== دکمه‌های خروجی ==================== -->
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px; background: var(--neutral-50); border-radius: var(--radius-md); align-items: center;">
+        <strong style="margin-left: 8px;">📤 خروجی:</strong>
+
+        <input type="text" id="library-name-input" placeholder="نام کتابخانه" value="کتابخانه من" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.9rem; font-family: inherit; width: 180px;">
+
+        <button type="button" class="btn" style="background: var(--success); color: #fff;" onclick="exportExcel()">
+            📊 Excel
+        </button>
+        <button type="button" class="btn" style="background: var(--danger); color: #fff;" onclick="exportPDF()">
+            📄 PDF
+        </button>
+        <a href="{% url 'library:print_labels' %}" class="btn btn-ghost">
+            🏷️ چاپ برچسب QR
+        </a>
+        <a href="{% url 'library:print_spines' %}" class="btn btn-ghost">
+            📖 چاپ عطف
+        </a>
     </div>
 
     <div id="offline-info" style="display: none; background: #fff3cd; color: #856404; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; font-size: 0.9rem;">
@@ -23,6 +43,7 @@
             <table>
                 <thead>
                     <tr>
+                        <th></th>
                         <th>عنوان</th>
                         <th>نویسنده</th>
                         <th>شابک</th>
@@ -33,6 +54,13 @@
                 <tbody>
                     {% for book in books %}
                     <tr>
+                        <td>
+                            {% if book.cover_image %}
+                            <img src="{{ book.cover_image.url }}" alt="{{ book.title }}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
+                            {% else %}
+                            <div style="width: 40px; height: 55px; background: var(--neutral-100); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">📖</div>
+                            {% endif %}
+                        </td>
                         <td>
                             <a href="{% url 'library:book_detail' book.pk %}" style="text-decoration: none; color: var(--accent-600); font-weight: 600;">
                                 {{ book.title }}
@@ -69,6 +97,41 @@
 </div>
 
 <script>
+// ==================== نام کتابخانه ====================
+function getLibraryName() {
+    const input = document.getElementById('library-name-input');
+    return input.value.trim() || 'کتابخانه من';
+}
+
+// ==================== خروجی Excel ====================
+function exportExcel() {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q') || '';
+    const name = encodeURIComponent(getLibraryName());
+    window.location.href = `/export/books/excel/?q=${encodeURIComponent(q)}&library_name=${name}`;
+}
+
+// ==================== خروجی PDF ====================
+function exportPDF() {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q') || '';
+    const name = encodeURIComponent(getLibraryName());
+    window.location.href = `/export/books/pdf/?q=${encodeURIComponent(q)}&library_name=${name}`;
+}
+
+// ==================== ذخیره نام کتابخانه در localStorage ====================
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('library-name-input');
+    const savedName = localStorage.getItem('library_name');
+    if (savedName) {
+        input.value = savedName;
+    }
+
+    input.addEventListener('change', () => {
+        localStorage.setItem('library_name', input.value.trim() || 'کتابخانه من');
+    });
+});
+
 // ==================== مدیریت Offline ====================
 document.addEventListener('DOMContentLoaded', async () => {
     if (!window.OfflineManager) return;
@@ -76,10 +139,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const offlineInfo = document.getElementById('offline-info');
     const lastSyncTime = document.getElementById('last-sync-time');
 
-    // بررسی وضعیت اولیه
     await updateOfflineView();
 
-    // Listener برای تغییرات
     OfflineManager.addListener(async (event) => {
         await updateOfflineView();
     });
@@ -95,43 +156,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 lastSyncTime.textContent = 'نامشخص';
             }
-
-            // اگر کتابی در نمایش نیست، از IndexedDB بخوان
-            const booksContainer = document.getElementById('books-container');
-            const hasBooksInDOM = booksContainer.querySelector('table') !== null;
-
-            if (!hasBooksInDOM) {
-                const books = await OfflineManager.getBooks();
-                if (books.length > 0) {
-                    renderBooksFromCache(books);
-                }
-            }
         } else {
             offlineInfo.style.display = 'none';
         }
-    }
-
-    function renderBooksFromCache(books) {
-        const container = document.getElementById('books-container');
-
-        let html = '<div style="text-align: center; margin-bottom: 12px; color: var(--text-muted); font-size: 0.85rem;">📵 نمایش از حافظه محلی</div>';
-        html += '<div class="table-wrap"><table><thead><tr>';
-        html += '<th>عنوان</th><th>نویسنده</th><th>شابک</th><th>موجودی</th>';
-        html += '</tr></thead><tbody>';
-
-        books.forEach(book => {
-            const available = book.available_copies || 0;
-            const total = book.total_copies || 0;
-            html += '<tr>';
-            html += `<td><strong>${book.title || '—'}</strong></td>`;
-            html += `<td>${book.author || '—'}</td>`;
-            html += `<td><code>${book.isbn || '—'}</code></td>`;
-            html += `<td><span class="badge ${available > 0 ? 'badge-ok' : 'badge-danger'}">${available} از ${total}</span></td>`;
-            html += '</tr>';
-        });
-
-        html += '</tbody></table></div>';
-        container.innerHTML = html;
     }
 });
 </script>

@@ -1,0 +1,51 @@
+{% extends 'library/base.html' %}
+
+{% block title %}چاپ برچسب QR{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 16px 0;">🏷️ چاپ برچسب QR</h2>
+    
+    <p style="color: var(--text-muted); margin-bottom: 16px;">
+        کتاب‌هایی که می‌خواهید برچسب QR آنها چاپ شود را انتخاب کنید.
+    </p>
+
+    <form method="get" action="{% url 'library:export_labels_pdf' %}">
+        <div style="margin-bottom: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+                <input type="checkbox" id="select-all" onchange="toggleAll(this)">
+                <span>انتخاب همه</span>
+            </label>
+        </div>
+
+        <div style="max-height: 500px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px;">
+            {% for book in books %}
+            <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--neutral-100); cursor: pointer;">
+                <input type="checkbox" name="book_ids" value="{{ book.pk }}" class="book-checkbox">
+                <div style="flex: 1;">
+                    <strong>{{ book.title }}</strong>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
+                        ✍️ {{ book.author }}{% if book.isbn %} | 🔢 {{ book.isbn }}{% endif %}
+                    </div>
+                </div>
+            </label>
+            {% empty %}
+            <p style="text-align: center; color: var(--text-muted); padding: 20px;">هیچ کتابی یافت نشد.</p>
+            {% endfor %}
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;">
+            <button type="submit" class="btn btn-primary">🖨️ چاپ برچسب‌های انتخاب شده</button>
+            <a href="{% url 'library:export_labels_pdf' %}" class="btn" style="background: var(--success); color: #fff;">🖨️ چاپ همه برچسب‌ها</a>
+            <a href="{% url 'library:book_list' %}" class="btn btn-ghost">← انصراف</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.book-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+}
+</script>
+{% endblock %}

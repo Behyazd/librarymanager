@@ -16,14 +16,10 @@ def normalize_persian(text):
     """نرمال‌سازی متن فارسی برای جستجو"""
     if not text:
         return ''
-    # تبدیل نیم‌فاصله به فاصله
     text = text.replace('\u200c', ' ')
-    # تبدیل ی و ک عربی به فارسی
     text = text.replace('ي', 'ی').replace('ك', 'ک')
-    # تبدیل اعداد عربی به فارسی
     text = text.replace('٠', '۰').replace('١', '۱').replace('٢', '۲').replace('٣', '۳').replace('٤', '۴')
     text = text.replace('٥', '۵').replace('٦', '۶').replace('٧', '۷').replace('٨', '۸').replace('٩', '۹')
-    # حذف فاصله‌های اضافی
     text = ' '.join(text.split())
     return text
 
@@ -36,7 +32,6 @@ def build_search_q(field, value):
     q = Q()
     for word in words:
         if word:
-            # جستجو در حالت عادی
             q &= Q(**{f'{field}__icontains': word})
 
     return q if words else Q()
@@ -246,7 +241,6 @@ def advanced_search(request):
     dewey_to = request.GET.get('dewey_to', '').strip()
     only_available = request.GET.get('only_available', '')
 
-    # اعمال فیلترها با جستجوی هوشمند
     if title:
         books = books.filter(build_search_q('title', title) | build_search_q('subtitle', title))
         query_params['title'] = title
@@ -351,7 +345,6 @@ def reports(request):
 
 @login_required
 def report_books(request):
-    """گزارش همه کتاب‌ها"""
     books = Book.objects.all().order_by('title')
     return render(request, 'library/report_list.html', {
         'title': '📚 همه کتاب‌ها',
@@ -363,7 +356,6 @@ def report_books(request):
 
 @login_required
 def report_available_books(request):
-    """گزارش کتاب‌های موجود"""
     books = [b for b in Book.objects.all() if b.available_copies > 0]
     return render(request, 'library/report_list.html', {
         'title': '✅ کتاب‌های موجود',
@@ -375,7 +367,6 @@ def report_available_books(request):
 
 @login_required
 def report_members(request):
-    """گزارش همه اعضا"""
     members = Member.objects.all().order_by('last_name', 'first_name')
     return render(request, 'library/report_list.html', {
         'title': '👥 همه اعضا',
@@ -387,7 +378,6 @@ def report_members(request):
 
 @login_required
 def report_active_loans(request):
-    """گزارش امانت‌های فعال"""
     loans = Loan.objects.filter(status='active').select_related('book', 'member').order_by('due_date')
     return render(request, 'library/report_list.html', {
         'title': '📋 امانت‌های فعال',
@@ -399,7 +389,6 @@ def report_active_loans(request):
 
 @login_required
 def report_overdue_loans(request):
-    """گزارش امانت‌های سررسید گذشته"""
     today = timezone.now().date()
     loans = Loan.objects.filter(
         status='active',
@@ -537,3 +526,190 @@ def loan_extend(request, pk):
             messages.error(request, 'امکان تمدید این امانت وجود ندارد.')
         return redirect('library:member_detail', pk=loan.member.pk)
     return render(request, 'library/loan_confirm_extend.html', {'loan': loan})
+
+
+# ==================== Export Views ====================
+
+@login_required
+def export_books_excel(request):
+    """خروجی Excel از کتاب‌ها"""
+    from .exports import export_books_to_excel
+
+    books = Book.objects.all().order_by('title')
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        books = books.filter(
+            Q(title__icontains=q) |
+            Q(author__icontains=q) |
+            Q(isbn__icontains=q)
+        )
+
+    if request.GET.get('only_available'):
+        books = [b for b in books if b.available_copies > 0]
+
+    library_name = request.GET.get('library_name', 'کتابخانه من')
+
+    today = timezone.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'books_{today}.xlsx'
+
+    return export_books_to_excel(books, library_name, filename)
+
+
+@login_required
+def export_books_pdf(request):
+    """خروجی PDF از کتاب‌ها"""
+    from .exports import export_books_to_pdf
+
+    books = Book.objects.all().order_by('title')
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        books = books.filter(
+            Q(title__icontains=q) |
+            Q(author__icontains=q) |
+            Q(isbn__icontains=q)
+        )
+
+    if request.GET.get('only_available'):
+        books = [b for b in books if b.available_copies > 0]
+
+    library_name = request.GET.get('library_name', 'کتابخانه من')
+
+    today = timezone.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'books_{today}.pdf'
+
+    return export_books_to_pdf(books, library_name, filename)
+
+
+@login_required
+def export_labels_pdf(request):
+    """خروجی PDF برچسب‌های QR"""
+    from .exports import export_labels_to_pdf
+
+    book_ids = request.GET.getlist('book_ids')
+
+    if book_ids:
+        books = Book.objects.filter(pk__in=book_ids).order_by('title')
+    else:
+        books = Book.objects.all().order_by('title')
+
+    if not books:
+        messages.error(request, 'کتابی برای چاپ برچسب وجود ندارد.')
+        return redirect('library:book_list')
+
+    today = timezone.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'labels_{today}.pdf'
+
+    return export_labels_to_pdf(books, filename)
+
+
+@login_required
+def print_labels(request):
+    """صفحه انتخاب کتاب برای چاپ برچسب"""
+    books = Book.objects.all().order_by('title')
+    return render(request, 'library/print_labels.html', {'books': books})
+
+
+@login_required
+def print_spines(request):
+    """صفحه چاپ عطف کتاب"""
+    books = Book.objects.all().order_by('title')
+    return render(request, 'library/print_spine.html', {'books': books})
+
+
+@login_required
+def export_spine_pdf(request):
+    """خروجی PDF عطف کتاب"""
+    from .exports import export_spine_pdf as export_spine
+
+    if request.method != 'POST':
+        return redirect('library:print_spines')
+
+    book_ids = request.POST.getlist('book_ids')
+
+    if not book_ids:
+        messages.error(request, 'هیچ کتابی انتخاب نشده است.')
+        return redirect('library:print_spines')
+
+    books = Book.objects.filter(pk__in=book_ids).order_by('title')
+
+    if not books:
+        messages.error(request, 'کتابی برای چاپ عطف وجود ندارد.')
+        return redirect('library:print_spines')
+
+    library_name = request.POST.get('library_name', 'کتابخانه')
+    spine_height = int(request.POST.get('spine_height', 60))
+    spine_width = int(request.POST.get('spine_width', 25))
+    classification = request.POST.get('classification', 'dewey')
+
+    options = {
+        'show_title': 'show_title' in request.POST,
+        'show_author': 'show_author' in request.POST,
+        'show_volume': 'show_volume' in request.POST,
+        'show_library': 'show_library' in request.POST,
+    }
+
+    today = timezone.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'spines_{today}.pdf'
+
+    return export_spine(
+        books,
+        library_name,
+        spine_height,
+        spine_width,
+        classification,
+        options,
+        filename
+    )
+
+
+# ==================== Cover Image Upload ====================
+
+@login_required
+def upload_cover(request, pk):
+    """آپلود تصویر جلد کتاب"""
+    book = get_object_or_404(Book, pk=pk)
+
+    if request.method == 'POST':
+        if 'cover_image' not in request.FILES:
+            messages.error(request, 'فایلی انتخاب نشده است.')
+            return redirect('library:book_detail', pk=book.pk)
+
+        cover = request.FILES['cover_image']
+
+        if not cover.content_type.startswith('image/'):
+            messages.error(request, 'فقط فایل‌های تصویری مجاز هستند.')
+            return redirect('library:book_detail', pk=book.pk)
+
+        if cover.size > 5 * 1024 * 1024:
+            messages.error(request, 'حجم فایل نباید بیشتر از ۵ مگابایت باشد.')
+            return redirect('library:book_detail', pk=book.pk)
+
+        if book.cover_image:
+            try:
+                book.cover_image.delete(save=False)
+            except:
+                pass
+
+        book.cover_image = cover
+        book.save()
+
+        messages.success(request, 'تصویر جلد با موفقیت آپلود شد.')
+        return redirect('library:book_detail', pk=book.pk)
+
+    return render(request, 'library/upload_cover.html', {'book': book})
+
+
+@login_required
+def delete_cover(request, pk):
+    """حذف تصویر جلد کتاب"""
+    book = get_object_or_404(Book, pk=pk)
+
+    if book.cover_image:
+        book.cover_image.delete(save=False)
+        book.cover_image = None
+        book.save()
+        messages.success(request, 'تصویر جلد حذف شد.')
+
+    return redirect('library:book_detail', pk=book.pk)

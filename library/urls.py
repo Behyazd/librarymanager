@@ -12,6 +12,8 @@ urlpatterns = [
     path('books/import/', views.book_import, name='book_import'),
     path('books/advanced-search/', views.advanced_search, name='advanced_search'),
     path('books/<int:book_pk>/loan/', views.loan_create, name='loan_create'),
+    path('books/<int:pk>/upload-cover/', views.upload_cover, name='upload_cover'),
+    path('books/<int:pk>/delete-cover/', views.delete_cover, name='delete_cover'),
     path('loans/', views.loan_list, name='loan_list'),
     path('loans/<int:pk>/return/', views.loan_return, name='loan_return'),
     path('loans/<int:pk>/extend/', views.loan_extend, name='loan_extend'),
@@ -24,4 +26,14 @@ urlpatterns = [
     path('reports/active-loans/', views.report_active_loans, name='report_active_loans'),
     path('reports/overdue-loans/', views.report_overdue_loans, name='report_overdue_loans'),
     path('api/autocomplete/books/', views.autocomplete_books, name='autocomplete_books'),
+
+    # Export
+    path('export/books/excel/', views.export_books_excel, name='export_books_excel'),
+    path('export/books/pdf/', views.export_books_pdf, name='export_books_pdf'),
+    path('export/labels/pdf/', views.export_labels_pdf, name='export_labels_pdf'),
+    path('print-labels/', views.print_labels, name='print_labels'),
+
+# در library/urls.py
+    path('print-spines/', views.print_spines, name='print_spines'),
+    path('export/spines/pdf/', views.export_spine_pdf, name='export_spine_pdf'),
 ]

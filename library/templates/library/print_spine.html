@@ -1,0 +1,106 @@
+{% extends 'library/base.html' %}
+
+{% block title %}چاپ عطف کتاب{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 16px 0;">📖 چاپ عطف کتاب (Spine Label)</h2>
+
+    <form method="post" action="{% url 'library:export_spine_pdf' %}" id="spine-form">
+        {% csrf_token %}
+
+        <!-- ==================== تنظیمات ==================== -->
+        <div style="background: var(--neutral-50); padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 1.05rem;">⚙️ تنظیمات عطف</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 4px;">نام کتابخانه</label>
+                    <input type="text" name="library_name" value="کتابخانه نور" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 4px;">ارتفاع عطف (میلی‌متر)</label>
+                    <input type="number" name="spine_height" value="60" min="30" max="200" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                    <small style="color: var(--text-muted);">ارتفاع عطف کتاب (معمولاً ۵۰-۸۰ mm)</small>
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 4px;">عرض عطف (میلی‌متر)</label>
+                    <input type="number" name="spine_width" value="25" min="10" max="80" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                    <small style="color: var(--text-muted);">عرض عطف (معمولاً ۱۵-۳۰ mm)</small>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 4px;">سیستم رده‌بندی</label>
+                    <select name="classification" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                        <option value="dewey">رده دیویی (Dewey)</option>
+                        <option value="lcc">رده کنگره (LCC)</option>
+                        <option value="both">هر دو</option>
+                        <option value="none">بدون رده</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; margin-bottom: 4px;">نمایش اجزا</label>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; padding: 8px 0;">
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="checkbox" name="show_title" checked>
+                            <span>عنوان</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="checkbox" name="show_author" checked>
+                            <span>نویسنده</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="checkbox" name="show_volume" checked>
+                            <span>شماره جلد</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="checkbox" name="show_library" checked>
+                            <span>نام کتابخانه</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== انتخاب کتاب‌ها ==================== -->
+        <div style="margin-bottom: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+                <input type="checkbox" id="select-all" onchange="toggleAll(this)">
+                <span>انتخاب همه</span>
+            </label>
+        </div>
+
+        <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px;">
+            {% for book in books %}
+            <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--neutral-100); cursor: pointer;">
+                <input type="checkbox" name="book_ids" value="{{ book.pk }}" class="book-checkbox">
+                <div style="flex: 1;">
+                    <strong>{{ book.title }}</strong>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
+                        ✍️ {{ book.author }}
+                        {% if book.dewey_class %}| 🔢 دیویی: {{ book.dewey_class }}{% endif %}
+                        {% if book.lcc_class %}| 🏛️ کنگره: {{ book.lcc_class }}{% endif %}
+                    </div>
+                </div>
+            </label>
+            {% empty %}
+            <p style="text-align: center; color: var(--text-muted); padding: 20px;">هیچ کتابی یافت نشد.</p>
+            {% endfor %}
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px;">
+            <button type="submit" class="btn btn-primary">🖨️ چاپ عطف‌های انتخاب شده</button>
+            <a href="{% url 'library:book_list' %}" class="btn btn-ghost">← انصراف</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.book-checkbox');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+}
+</script>
+{% endblock %}
