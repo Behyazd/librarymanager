@@ -126,20 +126,30 @@ def book_import(request):
 
 
 @login_required
+@login_required
 def book_add(request):
     if request.method == 'POST':
         try:
             title = request.POST.get('title', '').strip()
             isbn = request.POST.get('isbn', '').strip() or None
+            nbn = request.POST.get('national_biblio_number', '').strip() or None
 
             if not title:
                 messages.error(request, 'عنوان کتاب الزامی است.')
                 return render(request, 'library/book_add.html')
 
+            # بررسی تکراری با ISBN
             if isbn:
                 existing = Book.objects.filter(isbn=isbn).first()
                 if existing:
                     messages.error(request, f'کتابی با این شابک قبلاً ثبت شده: {existing.title}')
+                    return render(request, 'library/book_add.html')
+
+            # بررسی تکراری با شماره کتابشناسی ملی
+            if nbn:
+                existing = Book.objects.filter(national_biblio_number=nbn).first()
+                if existing:
+                    messages.error(request, f'کتابی با این شماره کتابشناسی ملی قبلاً ثبت شده: {existing.title}')
                     return render(request, 'library/book_add.html')
 
             book = Book.objects.create(

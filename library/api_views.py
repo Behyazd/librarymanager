@@ -320,11 +320,16 @@ def import_marc(request):
             for record in records:
                 try:
                     isbn = record.get('isbn', '').strip()
+                    nbn = record.get('national_biblio_number', '').strip()
+                    existing = None
                     if isbn:
                         existing = Book.objects.filter(isbn=isbn).first()
-                        if existing:
-                            skipped_count += 1
-                            continue
+                    if not existing and nbn:
+                        existing = Book.objects.filter(national_biblio_number=nbn).first()
+
+                    if existing:
+                        skipped_count += 1
+                        continue
 
                     book = Book.objects.create(
                         title=record.get('title', 'بدون عنوان') or 'بدون عنوان',
