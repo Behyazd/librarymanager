@@ -22,15 +22,19 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
 
-    # ⚠️ این دو خط باید قبل از include(router.urls) باشند
+    # API - MARC
     path('api/books/parse-marc/', parse_marc, name='parse_marc'),
     path('api/books/import-marc/', import_marc, name='import_marc'),
 
+    # API - REST
     path('api/', include(router.urls)),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/simple-login/', simple_login, name='simple_login'),
 
+    # PWA
     path('', include('pwa.urls')),
+
+    # Library URLs
     path('', include('library.urls')),
 ]
 

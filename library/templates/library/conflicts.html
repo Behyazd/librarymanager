@@ -1,0 +1,103 @@
+{% extends 'library/base.html' %}
+
+{% block title %}تعارض‌ها{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin: 0 0 16px 0;">⚠️ تعارض‌های Sync</h2>
+
+    {% if conflicts %}
+    {% for conflict in conflicts %}
+    <div style="border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+            <div>
+                <strong>{{ conflict.get_model_name_display }} - شناسه: {{ conflict.object_id }}</strong>
+                <div style="color: var(--text-muted); font-size: 0.85rem;">
+                    ایجاد: {{ conflict.created_at|date:"Y/m/d H:i" }}
+                </div>
+            </div>
+            <span class="badge badge-warn">در انتظار</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div style="background: oklch(94% 0.06 250); padding: 12px; border-radius: var(--radius-md); border-right: 4px solid var(--accent-500);">
+                <strong>📱 نسخه محلی:</strong>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                    آخرین ویرایش: {{ conflict.local_updated_at|date:"Y/m/d H:i" }}
+                </div>
+                <pre style="background: #fff; padding: 8px; border-radius: 4px; margin-top: 8px; font-size: 0.8rem; max-height: 150px; overflow-y: auto;">{{ conflict.local_data }}</pre>
+            </div>
+            <div style="background: oklch(94% 0.06 155); padding: 12px; border-radius: var(--radius-md); border-right: 4px solid var(--success);">
+                <strong>🌐 نسخه سرور:</strong>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                    آخرین ویرایش: {{ conflict.remote_updated_at|date:"Y/m/d H:i" }}
+                </div>
+                <pre style="background: #fff; padding: 8px; border-radius: 4px; margin-top: 8px; font-size: 0.8rem; max-height: 150px; overflow-y: auto;">{{ conflict.remote_data }}</pre>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="resolveConflict({{ conflict.id }}, 'local')">
+                ✅ انتخاب نسخه محلی
+            </button>
+            <button class="btn" style="background: var(--success); color: #fff;" onclick="resolveConflict({{ conflict.id }}, 'remote')">
+                ✅ انتخاب نسخه سرور
+            </button>
+            <button class="btn btn-ghost" onclick="resolveConflict({{ conflict.id }}, 'merged')">
+                🔀 ادغام خودکار
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 12px;">✅</div>
+        <p>هیچ تعارضی وجود ندارد</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function resolveConflict(conflictId, resolution) {
+    if (!confirm('آیا از حل این تعارض مطمئن هستید؟')) return;
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`/api/sync/conflicts/${conflictId}/resolve/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ resolution: resolution })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('خطا: ' + data.error);
+        }
+    } catch (e) {
+        alert('خطا: ' + e.message);
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

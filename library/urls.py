@@ -1,9 +1,13 @@
+# library/urls.py
 from django.urls import path
 from . import views
+from . import sync_views
+from . import backup_views
 
 app_name = 'library'
 
 urlpatterns = [
+    # کتاب‌ها
     path('', views.BookListView.as_view(), name='book_list'),
     path('books/<int:pk>/', views.book_detail, name='book_detail'),
     path('books/add/', views.book_add, name='book_add'),
@@ -14,28 +18,51 @@ urlpatterns = [
     path('books/<int:book_pk>/loan/', views.loan_create, name='loan_create'),
     path('books/<int:pk>/upload-cover/', views.upload_cover, name='upload_cover'),
     path('books/<int:pk>/delete-cover/', views.delete_cover, name='delete_cover'),
+
+    # اعضا
+    path('members/', views.member_list, name='member_list'),
+    path('members/<int:pk>/', views.member_detail, name='member_detail'),
+
+    # امانت‌ها
     path('loans/', views.loan_list, name='loan_list'),
     path('loans/<int:pk>/return/', views.loan_return, name='loan_return'),
     path('loans/<int:pk>/extend/', views.loan_extend, name='loan_extend'),
-    path('members/', views.member_list, name='member_list'),
-    path('members/<int:pk>/', views.member_detail, name='member_detail'),
+
+    # گزارش‌ها
     path('reports/', views.reports, name='reports'),
     path('reports/books/', views.report_books, name='report_books'),
     path('reports/available-books/', views.report_available_books, name='report_available_books'),
     path('reports/members/', views.report_members, name='report_members'),
     path('reports/active-loans/', views.report_active_loans, name='report_active_loans'),
     path('reports/overdue-loans/', views.report_overdue_loans, name='report_overdue_loans'),
-    path('api/autocomplete/books/', views.autocomplete_books, name='autocomplete_books'),
 
-    # Export
+    # خروجی‌ها
     path('export/books/excel/', views.export_books_excel, name='export_books_excel'),
     path('export/books/pdf/', views.export_books_pdf, name='export_books_pdf'),
     path('export/labels/pdf/', views.export_labels_pdf, name='export_labels_pdf'),
-    path('print-labels/', views.print_labels, name='print_labels'),
-
-# در library/urls.py
-    path('print-spines/', views.print_spines, name='print_spines'),
     path('export/spines/pdf/', views.export_spine_pdf, name='export_spine_pdf'),
+    path('print-labels/', views.print_labels, name='print_labels'),
+    path('print-spines/', views.print_spines, name='print_spines'),
 
+    # API
+    path('api/autocomplete/books/', views.autocomplete_books, name='autocomplete_books'),
     path('api/scan-barcode/', views.scan_barcode, name='scan_barcode'),
+
+    # ==================== Sync ====================
+    path('api/sync/push/', sync_views.sync_push, name='sync_push'),
+    path('api/sync/pull/', sync_views.sync_pull, name='sync_pull'),
+    path('api/sync/status/', sync_views.sync_status, name='sync_status'),
+    path('api/sync/conflicts/', sync_views.sync_conflicts, name='sync_conflicts'),
+    path('api/sync/conflicts/<int:conflict_id>/resolve/', sync_views.resolve_conflict, name='resolve_conflict'),
+    path('api/devices/register/', sync_views.register_device, name='register_device'),
+
+    # صفحات Sync
+    path('sync/', sync_views.sync_page, name='sync_page'),
+    path('backup/', sync_views.backup_page, name='backup_page'),
+    path('conflicts/', sync_views.conflicts_page, name='conflicts_page'),
+
+    # ==================== Backup ====================
+    path('api/backup/export/', backup_views.backup_export, name='backup_export'),
+    path('api/backup/import/', backup_views.backup_import, name='backup_import'),
+    path('api/backup/merge/', backup_views.backup_merge, name='backup_merge'),
 ]

@@ -411,36 +411,36 @@
     <a href="{% url 'library:member_list' %}">اعضا</a>
     <a href="{% url 'library:loan_list' %}">امانت‌ها</a>
     <a href="{% url 'library:reports' %}">📊 گزارش‌ها</a>
+    <a href="{% url 'library:sync_page' %}">🔄 Sync</a>
+    <a href="{% url 'library:backup_page' %}">💾 بکاپ</a>
     <a href="/admin/">پنل مدیریت</a>
 
     <div style="margin-right: auto; display: flex; align-items: center; gap: 8px;">
-      <button id="pwa-install-btn" title="نصب اپلیکیشن">
-        📲 نصب اپلیکیشن
-      </button>
-      <button id="dark-mode-toggle" title="تغییر تم">🌙</button>
+        <button id="pwa-install-btn" title="نصب اپلیکیشن">📲 نصب اپلیکیشن</button>
+        <button id="dark-mode-toggle" title="تغییر تم">🌙</button>
     </div>
   </nav>
 
   <nav class="mobile-nav">
     <a href="{% url 'library:book_list' %}">
-      <span class="icon">📚</span>
-      <span>کتاب‌ها</span>
+        <span class="icon">📚</span>
+        <span>کتاب‌ها</span>
     </a>
     <a href="{% url 'library:advanced_search' %}">
-      <span class="icon">🔍</span>
-      <span>جستجو</span>
+        <span class="icon">🔍</span>
+        <span>جستجو</span>
     </a>
     <a href="{% url 'library:member_list' %}">
-      <span class="icon">👥</span>
-      <span>اعضا</span>
+        <span class="icon">👥</span>
+        <span>اعضا</span>
     </a>
-    <a href="{% url 'library:loan_list' %}">
-      <span class="icon">📋</span>
-      <span>امانت‌ها</span>
+    <a href="{% url 'library:sync_page' %}">
+        <span class="icon">🔄</span>
+        <span>Sync</span>
     </a>
-    <a href="{% url 'library:reports' %}">
-      <span class="icon">📊</span>
-      <span>گزارش</span>
+    <a href="{% url 'library:backup_page' %}">
+        <span class="icon">💾</span>
+        <span>بکاپ</span>
     </a>
   </nav>
 
