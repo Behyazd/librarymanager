@@ -15,6 +15,10 @@ class Book(models.Model):
     title = models.CharField('عنوان', max_length=500)
     subtitle = models.CharField('عنوان فرعی', max_length=500, blank=True)
     statement_of_responsibility = models.CharField('عنوان و نام پدیدآور', max_length=500, blank=True)
+    # در مدل Book، بعد از فیلد `subtitle`:
+    volume = models.CharField('شماره جلد', max_length=20, blank=True)
+    series = models.CharField('نام مجموعه', max_length=200, blank=True)
+    series_number = models.PositiveIntegerField('شماره در مجموعه', null=True, blank=True)
 
     # ==================== پدیدآور (از 100) ====================
     author = models.CharField('سرشناسه (نویسنده)', max_length=300)

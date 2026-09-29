@@ -36,4 +36,6 @@ urlpatterns = [
 # در library/urls.py
     path('print-spines/', views.print_spines, name='print_spines'),
     path('export/spines/pdf/', views.export_spine_pdf, name='export_spine_pdf'),
+
+    path('api/scan-barcode/', views.scan_barcode, name='scan_barcode'),
 ]

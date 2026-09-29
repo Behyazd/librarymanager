@@ -29,10 +29,20 @@
                 <label for="author_dates" style="display: block; font-weight: 600; margin-bottom: 4px;">تاریخ نویسنده</label>
                 <input type="text" id="author_dates" name="author_dates" value="{{ book.author_dates|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
             </div>
+
+            <!-- ==================== ISBN با اسکن بارکد ==================== -->
             <div>
                 <label for="isbn" style="display: block; font-weight: 600; margin-bottom: 4px;">شابک</label>
                 <input type="text" id="isbn" name="isbn" value="{{ book.isbn|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                <div style="margin-top: 8px;">
+                    <input type="file" id="barcode-image" accept="image/*" capture="environment" style="display: none;" onchange="scanBarcode(this)">
+                    <button type="button" class="btn btn-ghost" style="font-size: 0.85rem;" onclick="document.getElementById('barcode-image').click()">
+                        📷 اسکن بارکد
+                    </button>
+                    <span id="barcode-status" style="font-size: 0.85rem; margin-right: 8px;"></span>
+                </div>
             </div>
+
             <div>
                 <label for="national_biblio_number" style="display: block; font-weight: 600; margin-bottom: 4px;">شماره کتابشناسی ملی</label>
                 <input type="text" id="national_biblio_number" name="national_biblio_number" value="{{ book.national_biblio_number|default:'' }}" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
@@ -79,6 +89,25 @@
             </div>
         </div>
 
+        <!-- ==================== کتاب چندجلدی ==================== -->
+        <div style="margin-top: 16px; padding: 16px; background: var(--neutral-50); border-radius: var(--radius-md);">
+            <h3 style="margin: 0 0 12px 0; font-size: 1rem;">📚 اطلاعات مجموعه (اختیاری)</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div>
+                    <label for="series" style="display: block; font-weight: 600; margin-bottom: 4px;">نام مجموعه</label>
+                    <input type="text" id="series" name="series" value="{{ book.series|default:'' }}" placeholder="مثلاً: تاریخ ایران" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                </div>
+                <div>
+                    <label for="volume" style="display: block; font-weight: 600; margin-bottom: 4px;">شماره جلد</label>
+                    <input type="text" id="volume" name="volume" value="{{ book.volume|default:'' }}" placeholder="مثلاً: جلد ۱" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                </div>
+                <div>
+                    <label for="series_number" style="display: block; font-weight: 600; margin-bottom: 4px;">شماره در مجموعه</label>
+                    <input type="number" id="series_number" name="series_number" value="{{ book.series_number|default:'' }}" min="1" placeholder="مثلاً: ۳" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">
+                </div>
+            </div>
+        </div>
+
         <div style="margin-top: 12px;">
             <label for="subject" style="display: block; font-weight: 600; margin-bottom: 4px;">موضوعات</label>
             <textarea id="subject" name="subject" rows="3" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit;">{{ book.subject|default:'' }}</textarea>
@@ -95,4 +124,63 @@
         </div>
     </form>
 </div>
+
+<script>
+// ==================== اسکن بارکد ====================
+async function scanBarcode(input) {
+    const statusDiv = document.getElementById('barcode-status');
+
+    if (!input.files.length) return;
+
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('image', file);
+
+    statusDiv.textContent = '⏳ در حال پردازش...';
+    statusDiv.style.color = 'blue';
+
+    try {
+        const response = await fetch('/api/scan-barcode/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            credentials: 'same-origin',
+            body: formData,
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('isbn').value = data.isbn;
+            statusDiv.textContent = `✅ ISBN: ${data.isbn}`;
+            statusDiv.style.color = 'green';
+        } else {
+            statusDiv.textContent = `❌ ${data.error}`;
+            statusDiv.style.color = 'red';
+        }
+    } catch (error) {
+        statusDiv.textContent = `❌ خطا: ${error.message}`;
+        statusDiv.style.color = 'red';
+    }
+
+    input.value = '';
+}
+
+// ==================== دریافت CSRF Token ====================
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

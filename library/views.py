@@ -162,6 +162,9 @@ def book_add(request):
                 marc_record=request.POST.get('marc_record', ''),
                 total_copies=int(request.POST.get('total_copies', 1)),
                 added_by=request.user,
+                volume=request.POST.get('volume', ''),
+                series=request.POST.get('series', ''),
+                series_number=request.POST.get('series_number') or None,
             )
 
             messages.success(request, f'کتاب «{book.title}» با موفقیت اضافه شد.')
@@ -212,6 +215,9 @@ def book_edit(request, pk):
             book.notes = request.POST.get('notes', '')
             book.total_copies = int(request.POST.get('total_copies', 1))
             book.save()
+            book.volume = request.POST.get('volume', '')
+            book.series = request.POST.get('series', '')
+            book.series_number = request.POST.get('series_number') or None
 
             messages.success(request, f'کتاب «{book.title}» با موفقیت ویرایش شد.')
             return redirect('library:book_detail', pk=book.pk)
@@ -713,3 +719,63 @@ def delete_cover(request, pk):
         messages.success(request, 'تصویر جلد حذف شد.')
 
     return redirect('library:book_detail', pk=book.pk)
+
+# ==================== Barcode Scanner ====================
+
+@login_required
+def scan_barcode(request):
+    """API اسکن بارکد از تصویر"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'فقط POST مجاز است'}, status=405)
+
+    if 'image' not in request.FILES:
+        return JsonResponse({'error': 'تصویری ارسال نشده است'}, status=400)
+
+    try:
+        import cv2
+        import numpy as np
+        from pyzbar.pyzbar import decode
+
+        image_file = request.FILES['image']
+        # خواندن تصویر از فایل
+        image_bytes = image_file.read()
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return JsonResponse({'error': 'تصویر نامعتبر است'}, status=400)
+
+        # تشخیص بارکد
+        barcodes = decode(img)
+
+        if not barcodes:
+            return JsonResponse({'error': 'بارکدی یافت نشد'}, status=404)
+
+        # استخراج ISBN از بارکد (EAN-13 با 978 یا 979)
+        isbn = None
+        for barcode in barcodes:
+            barcode_data = barcode.data.decode('utf-8')
+            barcode_type = barcode.type
+
+            # ISBN-13 با 978 یا 979
+            if barcode_type == 'EAN13' and (barcode_data.startswith('978') or barcode_data.startswith('979')):
+                isbn = barcode_data
+                break
+            # اگر ISBN-10 بود (نادر)
+            elif barcode_type == 'EAN13' and len(barcode_data) == 13:
+                isbn = barcode_data
+
+        if not isbn:
+            # اگر ISBN پیدا نشد، اولین بارکد را برگردان
+            isbn = barcodes[0].data.decode('utf-8')
+
+        return JsonResponse({
+            'success': True,
+            'isbn': isbn,
+            'barcode_type': barcodes[0].type,
+        })
+
+    except ImportError:
+        return JsonResponse({'error': 'کتابخانه pyzbar نصب نیست'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'خطا در پردازش: {str(e)}'}, status=500)

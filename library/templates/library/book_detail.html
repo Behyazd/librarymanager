@@ -15,7 +15,6 @@
             </div>
             {% endif %}
 
-            <!-- دکمه‌های تصویر -->
             <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
                 <form method="post" action="{% url 'library:upload_cover' book.pk %}" enctype="multipart/form-data">
                     {% csrf_token %}
@@ -61,6 +60,25 @@
 
             <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
 
+            <!-- ==================== اطلاعات مجموعه (چندجلدی) ==================== -->
+            {% if book.series or book.volume or book.series_number %}
+            <div style="background: oklch(94% 0.06 250); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; border-right: 4px solid var(--accent-500);">
+                <strong>📚 اطلاعات مجموعه:</strong>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 8px;">
+                    {% if book.series %}
+                    <div><strong>نام مجموعه:</strong> {{ book.series }}</div>
+                    {% endif %}
+                    {% if book.volume %}
+                    <div><strong>شماره جلد:</strong> {{ book.volume }}</div>
+                    {% endif %}
+                    {% if book.series_number %}
+                    <div><strong>شماره در مجموعه:</strong> {{ book.series_number }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== اطلاعات کتابشناختی ==================== -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
                 <div><strong>ناشر:</strong> {{ book.publisher|default:'—' }}</div>
                 <div><strong>محل نشر:</strong> {{ book.publish_place|default:'—' }}</div>
