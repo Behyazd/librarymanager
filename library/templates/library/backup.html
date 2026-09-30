@@ -9,14 +9,11 @@
     <!-- بکاپ -->
     <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 20px; border-radius: var(--radius-md); margin-bottom: 24px;">
         <h3 style="margin: 0 0 8px 0;">📤 گرفتن بکاپ</h3>
-        <p style="margin: 0 0 16px 0; opacity: 0.9;">از تمام داده‌های کتابخانه بکاپ بگیرید</p>
+        <p style="margin: 0 0 16px 0; opacity: 0.9;">از تمام داده‌ها و عکس‌ها یک فایل ZIP تهیه کنید</p>
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn" style="background: #fff; color: #667eea;" id="btn-local-backup">
-                💾 بکاپ محلی (JSON)
-            </button>
             <button type="button" class="btn" style="background: #fff; color: #667eea;" id="btn-server-backup">
-                🌐 بکاپ سرور (JSON)
+                🌐 بکاپ سرور (ZIP)
             </button>
             <button type="button" class="btn" style="background: #fff; color: #667eea;" id="btn-cloud-upload">
                 ☁️ آپلود به Google Drive
@@ -27,9 +24,9 @@
     <!-- بازیابی -->
     <div style="background: linear-gradient(135deg, #43e97b, #38f9d7); color: #fff; padding: 20px; border-radius: var(--radius-md); margin-bottom: 24px;">
         <h3 style="margin: 0 0 8px 0;">📥 بازیابی از بکاپ</h3>
-        <p style="margin: 0 0 16px 0; opacity: 0.9;">فایل بکاپ JSON را انتخاب کنید</p>
+        <p style="margin: 0 0 16px 0; opacity: 0.9;">فایل ZIP یا JSON را انتخاب کنید</p>
 
-        <input type="file" id="backup-file" accept=".json" style="margin-bottom: 12px;">
+        <input type="file" id="backup-file" accept=".zip,.json" style="margin-bottom: 12px;">
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button type="button" class="btn" style="background: #fff; color: #43e97b;" id="btn-import-merge">
@@ -48,7 +45,7 @@
         <h3 style="margin: 0 0 8px 0;">🔗 ادغام چند بکاپ</h3>
         <p style="margin: 0 0 16px 0; opacity: 0.9;">چند فایل بکاپ را با هم ادغام کنید</p>
 
-        <input type="file" id="merge-files" accept=".json" multiple style="margin-bottom: 12px;">
+        <input type="file" id="merge-files" accept=".zip,.json" multiple style="margin-bottom: 12px;">
 
         <button type="button" class="btn" style="background: #fff; color: #f5576c;" id="btn-merge">
             🔗 ادغام فایل‌ها
@@ -87,9 +84,8 @@ function getCookie(name) {
 function addHistory(action, status) {
     const div = document.getElementById('backup-history');
     const time = new Date().toLocaleString('fa-IR');
-    const color = status === 'موفق' ? 'green' : 'red';
+    const color = status.includes('موفق') ? 'green' : 'red';
 
-    // حذف پیام "هیچ بکاپی"
     if (div.querySelector('p')) {
         div.innerHTML = '';
     }
@@ -102,7 +98,7 @@ function addHistory(action, status) {
 }
 
 
-// ==================== Server Backup ====================
+// ==================== Server Backup (ZIP) ====================
 
 async function downloadServerBackup() {
     addHistory('بکاپ سرور', 'در حال دریافت...');
@@ -127,62 +123,16 @@ async function downloadServerBackup() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `library_server_backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `library_backup_${new Date().toISOString().slice(0,10)}.zip`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        addHistory('بکاپ سرور', 'موفق');
+        const coversCount = response.headers.get('X-Covers-Count') || '0';
+        addHistory('بکاپ سرور', `موفق (${coversCount} عکس)`);
     } catch (e) {
         addHistory('بکاپ سرور', `خطا: ${e.message}`);
-        alert('خطا: ' + e.message);
-    }
-}
-
-
-// ==================== Local Backup ====================
-
-async function downloadLocalBackup() {
-    addHistory('بکاپ محلی', 'در حال دریافت...');
-
-    try {
-        // خواندن از IndexedDB
-        let data = {
-            version: '1.0',
-            exported_at: new Date().toISOString(),
-            books: [],
-            members: [],
-            loans: [],
-        };
-
-        // اگر Dexie موجود است
-        if (window.LibraryDB && window.LibraryDB.db) {
-            data.books = await window.LibraryDB.db.books.toArray();
-            data.members = await window.LibraryDB.db.members.toArray();
-            data.loans = await window.LibraryDB.db.loans.toArray();
-        }
-
-        data.stats = {
-            books: data.books.length,
-            members: data.members.length,
-            loans: data.loans.length,
-        };
-
-        const json = JSON.stringify(data, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `library_local_backup_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        addHistory('بکاپ محلی', `موفق (${data.stats.books} کتاب)`);
-    } catch (e) {
-        addHistory('بکاپ محلی', `خطا: ${e.message}`);
         alert('خطا: ' + e.message);
     }
 }
@@ -219,9 +169,6 @@ async function importBackup(mode) {
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('لطفاً ابتدا وارد شوید');
-            }
             const errorData = await response.json();
             throw new Error(errorData.error || 'خطا در بازیابی');
         }
@@ -229,7 +176,7 @@ async function importBackup(mode) {
         const data = await response.json();
 
         if (data.success) {
-            statusDiv.textContent = `✅ ${data.message}`;
+            statusDiv.innerHTML = `✅ ${data.message}`;
             statusDiv.style.color = 'green';
             addHistory('بازیابی', 'موفق');
         } else {
@@ -275,9 +222,6 @@ async function mergeBackups() {
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('لطفاً ابتدا وارد شوید');
-            }
             const errorData = await response.json();
             throw new Error(errorData.error || 'خطا در ادغام');
         }
@@ -318,9 +262,6 @@ async function uploadToCloud() {
         });
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('لطفاً ابتدا وارد شوید');
-            }
             const errorData = await response.json();
             throw new Error(errorData.error || 'خطا در آپلود');
         }
@@ -338,7 +279,6 @@ async function uploadToCloud() {
 // ==================== Event Listeners ====================
 
 document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('btn-local-backup').addEventListener('click', downloadLocalBackup);
     document.getElementById('btn-server-backup').addEventListener('click', downloadServerBackup);
     document.getElementById('btn-cloud-upload').addEventListener('click', uploadToCloud);
     document.getElementById('btn-import-merge').addEventListener('click', function() { importBackup('merge'); });
