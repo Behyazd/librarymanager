@@ -138,54 +138,167 @@ def book_add(request):
                 messages.error(request, 'عنوان کتاب الزامی است.')
                 return render(request, 'library/book_add.html')
 
+            # ✅ تابع پاکسازی کاراکتر NUL
+            def clean_text(text):
+                if not text:
+                    return ''
+                return ''.join(c for c in str(text) if c != '\x00')
+
+            # ✅ تابع به‌روزرسانی هوشمند
+            def smart_update(existing, new_data, clean_text):
+                """
+                به‌روزرسانی هوشمند:
+                - فیلدهای خالی جدید، اطلاعات قبلی را پاک نمی‌کنند
+                - فیلدهای پر جدید، اطلاعات قبلی را جایگزین می‌کنند
+                """
+                updated_fields = []
+
+                for key, value in new_data.items():
+                    # فیلدهای غیرقابل‌تغییر را رد کن
+                    if key in ['id', 'created_at', 'updated_at', 'cover_image', 'qr_code']:
+                        continue
+
+                    # اگر فیلد در مدل نیست، رد کن
+                    if not hasattr(existing, key):
+                        continue
+
+                    # پاکسازی مقدار جدید
+                    if isinstance(value, str):
+                        value = clean_text(value).strip()
+
+                    # ✅ اگر مقدار جدید خالی است، فیلد قبلی را دست نزن
+                    if value is None or (isinstance(value, str) and value == ''):
+                        continue
+
+                    # مقدار قبلی
+                    old_value = getattr(existing, key, None)
+                    if old_value is None:
+                        old_value = '' if isinstance(value, str) else old_value
+
+                    # ✅ اگر مقدار جدید با قبلی یکسان است، کاری نکن
+                    if old_value == value:
+                        continue
+
+                    # ✅ به‌روزرسانی
+                    setattr(existing, key, value)
+                    updated_fields.append(key)
+
+                if updated_fields:
+                    existing.save()
+                    return True, updated_fields
+
+                return False, []
+
             # بررسی تکراری با ISBN
+            existing = None
             if isbn:
                 existing = Book.objects.filter(isbn=isbn).first()
-                if existing:
-                    messages.error(request, f'کتابی با این شابک قبلاً ثبت شده: {existing.title}')
-                    return render(request, 'library/book_add.html')
 
-            # بررسی تکراری با شماره کتابشناسی ملی
-            if nbn:
+            # بررسی تکراری با NBN (اگر با ISBN پیدا نشد)
+            if not existing and nbn:
                 existing = Book.objects.filter(national_biblio_number=nbn).first()
-                if existing:
-                    messages.error(request, f'کتابی با این شماره کتابشناسی ملی قبلاً ثبت شده: {existing.title}')
-                    return render(request, 'library/book_add.html')
+
+            # ✅ اگر کتاب موجود بود، به‌روزرسانی کن
+            if existing:
+                # پردازش امن اعداد
+                total_copies_str = request.POST.get('total_copies', '1')
+                total_copies = int(total_copies_str) if total_copies_str and total_copies_str.strip() else 1
+
+                series_number_str = request.POST.get('series_number', '')
+                series_number = None
+                if series_number_str and series_number_str.strip():
+                    try:
+                        series_number = int(series_number_str)
+                    except (ValueError, TypeError):
+                        series_number = None
+
+                # داده‌های جدید
+                new_data = {
+                    'title': title,
+                    'subtitle': request.POST.get('subtitle', ''),
+                    'author': request.POST.get('author', ''),
+                    'author_dates': request.POST.get('author_dates', ''),
+                    'publisher': request.POST.get('publisher', ''),
+                    'publish_place': request.POST.get('publish_place', ''),
+                    'publish_year': request.POST.get('publish_year', ''),
+                    'pages': request.POST.get('pages', ''),
+                    'dimensions': request.POST.get('dimensions', ''),
+                    'dewey_class': request.POST.get('dewey_class', ''),
+                    'lcc_class': request.POST.get('lcc_class', ''),
+                    'national_biblio_number': request.POST.get('national_biblio_number', ''),
+                    'subject': request.POST.get('subject', ''),
+                    'notes': request.POST.get('notes', ''),
+                    'fapa': request.POST.get('fapa', ''),
+                    'marc_record': request.POST.get('marc_record', ''),
+                    'volume': request.POST.get('volume', ''),
+                    'series': request.POST.get('series', ''),
+                    'series_number': series_number,
+                    'total_copies': total_copies,
+                }
+
+                updated, updated_fields = smart_update(existing, new_data, clean_text)
+
+                if updated:
+                    messages.success(
+                        request,
+                        f'کتاب «{existing.title}» به‌روزرسانی شد. '
+                        f'({len(updated_fields)} فیلد تغییر کرد)'
+                    )
+                else:
+                    messages.info(
+                        request,
+                        f'کتاب «{existing.title}» قبلاً موجود بود و هیچ تغییری نداشت.'
+                    )
+
+                return redirect('library:book_detail', pk=existing.pk)
+
+            # ✅ اگر کتاب جدید بود، ایجاد کن
+            total_copies_str = request.POST.get('total_copies', '1')
+            total_copies = int(total_copies_str) if total_copies_str and total_copies_str.strip() else 1
+
+            series_number_str = request.POST.get('series_number', '')
+            series_number = None
+            if series_number_str and series_number_str.strip():
+                try:
+                    series_number = int(series_number_str)
+                except (ValueError, TypeError):
+                    series_number = None
 
             book = Book.objects.create(
-                title=title,
-                subtitle=request.POST.get('subtitle', ''),
-                author=request.POST.get('author', ''),
-                author_dates=request.POST.get('author_dates', ''),
-                isbn=isbn,
-                publisher=request.POST.get('publisher', ''),
-                publish_place=request.POST.get('publish_place', ''),
-                publish_year=request.POST.get('publish_year', ''),
-                pages=request.POST.get('pages', ''),
-                dimensions=request.POST.get('dimensions', ''),
-                dewey_class=request.POST.get('dewey_class', ''),
-                lcc_class=request.POST.get('lcc_class', ''),
-                national_biblio_number=request.POST.get('national_biblio_number', ''),
-                subject=request.POST.get('subject', ''),
-                notes=request.POST.get('notes', ''),
-                fapa=request.POST.get('fapa', ''),
-                marc_record=request.POST.get('marc_record', ''),
-                total_copies=int(request.POST.get('total_copies', 1)),
+                title=clean_text(title),
+                subtitle=clean_text(request.POST.get('subtitle', '')),
+                author=clean_text(request.POST.get('author', '')),
+                author_dates=clean_text(request.POST.get('author_dates', '')),
+                isbn=clean_text(isbn) if isbn else None,
+                publisher=clean_text(request.POST.get('publisher', '')),
+                publish_place=clean_text(request.POST.get('publish_place', '')),
+                publish_year=clean_text(request.POST.get('publish_year', '')),
+                pages=clean_text(request.POST.get('pages', '')),
+                dimensions=clean_text(request.POST.get('dimensions', '')),
+                dewey_class=clean_text(request.POST.get('dewey_class', '')),
+                lcc_class=clean_text(request.POST.get('lcc_class', '')),
+                national_biblio_number=clean_text(request.POST.get('national_biblio_number', '')),
+                subject=clean_text(request.POST.get('subject', '')),
+                notes=clean_text(request.POST.get('notes', '')),
+                fapa=clean_text(request.POST.get('fapa', '')),
+                marc_record=clean_text(request.POST.get('marc_record', '')),
+                total_copies=total_copies,
                 added_by=request.user,
-                volume=request.POST.get('volume', ''),
-                series=request.POST.get('series', ''),
-                series_number=request.POST.get('series_number') or None,
+                volume=clean_text(request.POST.get('volume', '')),
+                series=clean_text(request.POST.get('series', '')),
+                series_number=series_number,
             )
 
             messages.success(request, f'کتاب «{book.title}» با موفقیت اضافه شد.')
             return redirect('library:book_detail', pk=book.pk)
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             messages.error(request, f'خطا در ذخیره کتاب: {str(e)}')
             return render(request, 'library/book_add.html')
 
     return render(request, 'library/book_add.html')
-
 
 @login_required
 def book_edit(request, pk):

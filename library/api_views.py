@@ -289,7 +289,7 @@ def parse_marc(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def import_marc(request):
-    """دریافت یک یا چند فایل MARC و ذخیره همه رکوردها در دیتابیس"""
+    """دریافت فایل MARC و ذخیره همه رکوردها در دیتابیس"""
     files = request.FILES.getlist('files')
 
     if not files:
@@ -300,6 +300,12 @@ def import_marc(request):
                 {'error': 'فایل MARC ارسال نشده است'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    # ✅ تابع پاکسازی کاراکتر NUL
+    def clean_text(text):
+        if not text:
+            return ''
+        return ''.join(c for c in str(text) if c != '\x00')
 
     imported_count = 0
     skipped_count = 0
@@ -319,8 +325,10 @@ def import_marc(request):
 
             for record in records:
                 try:
-                    isbn = record.get('isbn', '').strip()
-                    nbn = record.get('national_biblio_number', '').strip()
+                    isbn = clean_text(record.get('isbn', '')).strip()
+                    nbn = clean_text(record.get('national_biblio_number', '')).strip()
+
+                    # بررسی تکراری
                     existing = None
                     if isbn:
                         existing = Book.objects.filter(isbn=isbn).first()
@@ -331,25 +339,26 @@ def import_marc(request):
                         skipped_count += 1
                         continue
 
+                    # ✅ پاکسازی همه فیلدهای متنی
                     book = Book.objects.create(
-                        title=record.get('title', 'بدون عنوان') or 'بدون عنوان',
-                        subtitle=record.get('subtitle', ''),
-                        author=record.get('author', ''),
-                        author_dates=record.get('author_dates', ''),
+                        title=clean_text(record.get('title', 'بدون عنوان')) or 'بدون عنوان',
+                        subtitle=clean_text(record.get('subtitle', '')),
+                        author=clean_text(record.get('author', '')),
+                        author_dates=clean_text(record.get('author_dates', '')),
                         isbn=isbn if isbn else None,
-                        publisher=record.get('publisher', ''),
-                        publish_place=record.get('publish_place', ''),
-                        publish_year=record.get('publish_year', ''),
-                        pages=record.get('pages', ''),
-                        dimensions=record.get('dimensions', ''),
-                        dewey_class=record.get('dewey_class', ''),
-                        lcc_class=record.get('lcc_class', ''),
-                        national_biblio_number=record.get('national_biblio_number', ''),
-                        subject=record.get('subject', ''),
-                        notes=record.get('notes', ''),
-                        fapa=record.get('fapa', ''),
-                        marc_record=record.get('marc_record', ''),
-                        statement_of_responsibility=record.get('statement_of_responsibility', ''),
+                        publisher=clean_text(record.get('publisher', '')),
+                        publish_place=clean_text(record.get('publish_place', '')),
+                        publish_year=clean_text(record.get('publish_year', '')),
+                        pages=clean_text(record.get('pages', '')),
+                        dimensions=clean_text(record.get('dimensions', '')),
+                        dewey_class=clean_text(record.get('dewey_class', '')),
+                        lcc_class=clean_text(record.get('lcc_class', '')),
+                        national_biblio_number=nbn,
+                        subject=clean_text(record.get('subject', '')),
+                        notes=clean_text(record.get('notes', '')),
+                        fapa=clean_text(record.get('fapa', '')),
+                        marc_record=clean_text(record.get('marc_record', '')),
+                        statement_of_responsibility=clean_text(record.get('statement_of_responsibility', '')),
                         added_by=request.user,
                     )
                     imported_count += 1
@@ -360,10 +369,14 @@ def import_marc(request):
                     })
 
                 except Exception as e:
-                    errors.append(f"خطا در ذخیره رکورد از {uploaded_file.name}: {str(e)}")
+                    errors.append(f"خطا در ذخیره رکورد: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
 
         except Exception as e:
             errors.append(f"خطا در پردازش {uploaded_file.name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     return Response({
         'success': True,

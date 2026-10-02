@@ -1,20 +1,20 @@
 # library/backup_views.py
 """
-API Backup و Restore - با پشتیبانی از ZIP و عکس‌ها
+API Backup و Restore - نسخه ۵
+با رفع مشکل NOT NULL در PostgreSQL
 """
 import json
 import os
 import zipfile
 import tempfile
+import re
 from io import BytesIO
 from pathlib import Path
 
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.core import serializers
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 from django.conf import settings
 
 from rest_framework.decorators import api_view, permission_classes
@@ -24,17 +24,111 @@ from rest_framework.response import Response
 from .models import Book, Member, Loan, Notification
 
 
-# ==================== Backup Export (ZIP) ====================
+# ==================== Helper: تبدیل None به مقادیر پیش‌فرض ====================
+
+def safe_str(value, default=''):
+    """تبدیل None به رشته خالی"""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def safe_int(value, default=1):
+    """تبدیل None به عدد صحیح"""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_bool(value, default=False):
+    """تبدیل None به Boolean"""
+    if value is None:
+        return default
+    return bool(value)
+
+
+def clean_book_fields(fields):
+    """
+    پاکسازی فیلدهای کتاب برای جلوگیری از خطای NOT NULL
+    """
+    # فیلدهای اجباری (NOT NULL) در دیتابیس
+    required_fields = {
+        'title': '',
+        'author': '',
+        'subtitle': '',
+        'statement_of_responsibility': '',
+        'author_dates': '',
+        'isbn': None,  # این می‌تواند None باشد
+        'national_biblio_number': '',
+        'publisher': '',
+        'publish_place': '',
+        'publish_year': '',
+        'pages': '',
+        'dimensions': '',
+        'dewey_class': '',
+        'lcc_class': '',
+        'subject': '',
+        'notes': '',
+        'fapa': '',
+        'volume': '',
+        'series': '',
+        'series_number': None,
+        'language': 'فارسی',
+        'cover_image': '',
+        'qr_code': '',
+        'condition': 'good',
+        'location': '',
+        'copy_number': 1,
+        'total_copies': 1,
+        'marc_record': '',
+    }
+
+    cleaned = {}
+
+    for field, default in required_fields.items():
+        value = fields.get(field)
+
+        # اگر None بود، مقدار پیش‌فرض
+        if value is None:
+            cleaned[field] = default
+        # اگر رشته خالی بود برای فیلدهای اجباری، جایگزین کن
+        elif isinstance(value, str) and value.strip() == '' and default == '':
+            cleaned[field] = ''
+        else:
+            cleaned[field] = value
+
+    # پردازش فیلدهای خاص
+    # isbn: اگر خالی بود None
+    if cleaned.get('isbn') == '':
+        cleaned['isbn'] = None
+
+    # series_number: تبدیل به عدد
+    if cleaned.get('series_number'):
+        cleaned['series_number'] = safe_int(cleaned['series_number'], None)
+    else:
+        cleaned['series_number'] = None
+
+    # copy_number و total_copies: تبدیل به عدد
+    cleaned['copy_number'] = safe_int(cleaned.get('copy_number'), 1)
+    cleaned['total_copies'] = safe_int(cleaned.get('total_copies'), 1)
+
+    return cleaned
+
+
+# ==================== Backup Export ====================
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def backup_export(request):
-    """
-    خروجی کامل دیتابیس به صورت ZIP (JSON + عکس‌ها)
-    """
-    # ساخت data.json
+    """خروجی ZIP با JSON + عکس‌ها"""
+
     data = {
-        'version': '2.0',
+        'version': '3.0',
         'exported_at': timezone.now().isoformat(),
         'exported_by': request.user.username,
         'stats': {
@@ -42,71 +136,121 @@ def backup_export(request):
             'members': Member.objects.count(),
             'loans': Loan.objects.count(),
         },
-        'books': json.loads(serializers.serialize('json', Book.objects.all())),
+        'books': [],
         'members': json.loads(serializers.serialize('json', Member.objects.all())),
         'loans': json.loads(serializers.serialize('json', Loan.objects.all())),
     }
 
-    # ساخت ZIP در حافظه
+    covers_count = 0
+    qrcodes_count = 0
+    cover_files = []
+
+    # جمع‌آوری کتاب‌ها
+    for book in Book.objects.all():
+        book_data = {
+            'model': 'library.book',
+            'pk': book.pk,
+            'fields': {
+                'isbn': book.isbn,
+                'national_biblio_number': book.national_biblio_number or '',
+                'title': book.title or '',
+                'subtitle': book.subtitle or '',
+                'statement_of_responsibility': book.statement_of_responsibility or '',
+                'author': book.author or '',
+                'author_dates': book.author_dates or '',
+                'publisher': book.publisher or '',
+                'publish_place': book.publish_place or '',
+                'publish_year': book.publish_year or '',
+                'pages': book.pages or '',
+                'dimensions': book.dimensions or '',
+                'dewey_class': book.dewey_class or '',
+                'lcc_class': book.lcc_class or '',
+                'subject': book.subject or '',
+                'notes': book.notes or '',
+                'fapa': book.fapa or '',
+                'volume': book.volume or '',
+                'series': book.series or '',
+                'series_number': book.series_number,
+                'language': book.language or 'فارسی',
+                'condition': book.condition or 'good',
+                'location': book.location or '',
+                'copy_number': book.copy_number or 1,
+                'total_copies': book.total_copies or 1,
+                'marc_record': book.marc_record or '',
+                'cover_image': '',
+                'qr_code': '',
+            }
+        }
+
+        if book.cover_image and book.cover_image.name:
+            try:
+                file_path = book.cover_image.path
+                if os.path.exists(file_path):
+                    ext = os.path.splitext(file_path)[1]
+                    filename = f'cover_{book.pk}{ext}'
+                    book_data['fields']['cover_image'] = f'covers/{filename}'
+                    cover_files.append((book.pk, filename, file_path))
+            except Exception as e:
+                print(f"خطا در عکس {book.pk}: {e}")
+
+        if book.qr_code and book.qr_code.name:
+            try:
+                file_path = book.qr_code.path
+                if os.path.exists(file_path):
+                    ext = os.path.splitext(file_path)[1]
+                    filename = f'qr_{book.pk}{ext}'
+                    book_data['fields']['qr_code'] = f'qrcodes/{filename}'
+            except Exception as e:
+                print(f"خطا در QR {book.pk}: {e}")
+
+        data['books'].append(book_data)
+
+    # ساخت ZIP
     zip_buffer = BytesIO()
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        # نوشتن data.json
         json_data = json.dumps(data, ensure_ascii=False, indent=2)
         zipf.writestr('data.json', json_data)
 
-        # اضافه کردن عکس‌های جلد
-        covers_count = 0
-        for book in Book.objects.all():
-            if book.cover_image and book.cover_image.name:
-                try:
-                    file_path = book.cover_image.path
-                    if os.path.exists(file_path):
-                        # مسیر در ZIP
-                        arcname = f'covers/{os.path.basename(file_path)}'
-                        zipf.write(file_path, arcname)
-                        covers_count += 1
-                except Exception as e:
-                    print(f"خطا در اضافه کردن عکس {book.pk}: {e}")
+        for book_pk, filename, file_path in cover_files:
+            try:
+                zipf.write(file_path, f'covers/{filename}')
+                covers_count += 1
+            except Exception as e:
+                print(f"خطا در ZIP عکس {book_pk}: {e}")
 
-        # اضافه کردن QR Code ها
-        qrcodes_count = 0
         for book in Book.objects.all():
             if book.qr_code and book.qr_code.name:
                 try:
                     file_path = book.qr_code.path
                     if os.path.exists(file_path):
-                        arcname = f'qrcodes/{os.path.basename(file_path)}'
-                        zipf.write(file_path, arcname)
+                        ext = os.path.splitext(file_path)[1]
+                        filename = f'qr_{book.pk}{ext}'
+                        zipf.write(file_path, f'qrcodes/{filename}')
                         qrcodes_count += 1
                 except Exception as e:
-                    print(f"خطا در اضافه کردن QR {book.pk}: {e}")
+                    print(f"خطا در ZIP QR {book.pk}: {e}")
 
-    # پاسخ
     zip_buffer.seek(0)
 
-    response = HttpResponse(
-        zip_buffer.read(),
-        content_type='application/zip'
-    )
+    response = HttpResponse(zip_buffer.read(), content_type='application/zip')
     filename = f'library_backup_{timezone.now().strftime("%Y%m%d_%H%M%S")}.zip'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
-    # آمار در هدر
-    response['X-Covers-Count'] = str(covers_count)
-    response['X-QRCodes-Count'] = str(qrcodes_count)
+    print(f"\n📊 آمار ZIP:")
+    print(f"   کتاب: {len(data['books'])}")
+    print(f"   عکس: {covers_count}")
+    print(f"   QR: {qrcodes_count}")
 
     return response
 
 
-# ==================== Backup Import (ZIP) ====================
+# ==================== Backup Import ====================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def backup_import(request):
-    """
-    بازیابی از فایل ZIP (JSON + عکس‌ها)
-    """
+    """بازیابی از ZIP یا JSON"""
     if 'file' not in request.FILES:
         return Response({'error': 'فایلی ارسال نشده'}, status=400)
 
@@ -116,10 +260,8 @@ def backup_import(request):
     stats = {
         'books_created': 0,
         'books_updated': 0,
-        'books_skipped': 0,
         'members_created': 0,
         'members_updated': 0,
-        'members_skipped': 0,
         'loans_created': 0,
         'loans_skipped': 0,
         'covers_saved': 0,
@@ -127,99 +269,97 @@ def backup_import(request):
         'errors': []
     }
 
+    pk_map = {}
+    member_pk_map = {}
+    cover_files = {}
+
     try:
-        # تشخیص نوع فایل (ZIP یا JSON)
         file_content = uploaded_file.read()
 
         if uploaded_file.name.endswith('.zip'):
-            # ==================== فایل ZIP ====================
             with zipfile.ZipFile(BytesIO(file_content), 'r') as zipf:
-                # خواندن data.json
                 if 'data.json' not in zipf.namelist():
-                    return Response({'error': 'فایل data.json در ZIP یافت نشد'}, status=400)
+                    return Response({'error': 'data.json یافت نشد'}, status=400)
 
                 with zipf.open('data.json') as f:
                     data = json.loads(f.read().decode('utf-8'))
 
-                # پاک کردن در حالت replace
+                # استخراج عکس‌ها
+                for name in zipf.namelist():
+                    if (name.startswith('covers/') or name.startswith('qrcodes/')) and not name.endswith('/'):
+                        with zipf.open(name) as img_file:
+                            filename = os.path.basename(name)
+                            cover_files[filename] = img_file.read()
+
+                print(f"\n📦 فایل‌های موجود در ZIP:")
+                print(f"   عکس‌ها: {len(cover_files)}")
+
                 if mode == 'replace':
                     Loan.objects.all().delete()
                     Member.objects.all().delete()
                     Book.objects.all().delete()
 
-                # بازیابی کتاب‌ها
+                # ==================== کتاب‌ها ====================
                 for book_data in data.get('books', []):
                     try:
-                        result = process_book(book_data, mode)
-                        stats[f'books_{result}'] += 1
+                        fields = book_data.get('fields', {})
+                        old_pk = book_data.get('pk')
+
+                        # پاکسازی فیلدها
+                        clean_fields = clean_book_fields(fields)
+
+                        # ایجاد یا به‌روزرسانی
+                        book, action = process_book_safe(clean_fields, mode)
+
+                        if book:
+                            pk_map[old_pk] = book
+                            stats[f'books_{action}'] += 1
+
+                            # ذخیره عکس
+                            cover_field = fields.get('cover_image', '')
+                            if cover_field:
+                                filename = os.path.basename(cover_field)
+                                if filename in cover_files:
+                                    save_book_cover(book, filename, cover_files[filename], stats)
+
                     except Exception as e:
                         stats['errors'].append(f'کتاب: {str(e)}')
+                        print(f"❌ خطا در کتاب: {e}")
 
-                # بازیابی اعضا
+                # ==================== اعضا ====================
                 for member_data in data.get('members', []):
                     try:
-                        result = process_member(member_data, mode)
-                        stats[f'members_{result}'] += 1
+                        fields = member_data.get('fields', {})
+                        old_pk = member_data.get('pk')
+
+                        member, action = process_member_safe(fields, mode)
+                        if member:
+                            member_pk_map[old_pk] = member
+                            stats[f'members_{action}'] += 1
+
                     except Exception as e:
                         stats['errors'].append(f'عضو: {str(e)}')
 
-                # بازیابی امانت‌ها
+                # ==================== امانت‌ها ====================
                 for loan_data in data.get('loans', []):
                     try:
-                        result = process_loan(loan_data, mode)
+                        fields = loan_data.get('fields', {})
+                        old_book_pk = fields.get('book')
+                        old_member_pk = fields.get('member')
+
+                        if old_book_pk in pk_map:
+                            fields['book'] = pk_map[old_book_pk].pk
+                        if old_member_pk in member_pk_map:
+                            fields['member'] = member_pk_map[old_member_pk].pk
+
+                        result = process_loan(fields, mode)
                         stats[f'loans_{result}'] += 1
+
                     except Exception as e:
                         stats['errors'].append(f'امانت: {str(e)}')
 
-                # بازیابی عکس‌ها
-                for name in zipf.namelist():
-                    if name.startswith('covers/') and not name.endswith('/'):
-                        try:
-                            filename = os.path.basename(name)
-
-                            # پیدا کردن کتاب مربوطه
-                            book = find_book_by_cover_name(filename, data)
-
-                            if book:
-                                # ذخیره عکس
-                                with zipf.open(name) as img_file:
-                                    img_data = img_file.read()
-
-                                    # حذف عکس قبلی
-                                    if book.cover_image:
-                                        try:
-                                            book.cover_image.delete(save=False)
-                                        except:
-                                            pass
-
-                                    # ذخیره عکس جدید
-                                    book.cover_image.save(filename, ContentFile(img_data), save=True)
-                                    stats['covers_saved'] += 1
-                        except Exception as e:
-                            stats['errors'].append(f'عکس {name}: {str(e)}')
-
-                    elif name.startswith('qrcodes/') and not name.endswith('/'):
-                        try:
-                            filename = os.path.basename(name)
-                            book = find_book_by_qr_name(filename, data)
-
-                            if book:
-                                with zipf.open(name) as img_file:
-                                    img_data = img_file.read()
-
-                                    if book.qr_code:
-                                        try:
-                                            book.qr_code.delete(save=False)
-                                        except:
-                                            pass
-
-                                    book.qr_code.save(filename, ContentFile(img_data), save=True)
-                                    stats['qrcodes_saved'] += 1
-                        except Exception as e:
-                            stats['errors'].append(f'QR {name}: {str(e)}')
-
         else:
-            # ==================== فایل JSON (سازگاری با نسخه قبل) ====================
+            # ==================== JSON ====================
             data = json.loads(file_content.decode('utf-8'))
 
             if mode == 'replace':
@@ -229,28 +369,49 @@ def backup_import(request):
 
             for book_data in data.get('books', []):
                 try:
-                    result = process_book(book_data, mode)
-                    stats[f'books_{result}'] += 1
+                    fields = book_data.get('fields', {})
+                    old_pk = book_data.get('pk')
+
+                    clean_fields = clean_book_fields(fields)
+                    book, action = process_book_safe(clean_fields, mode)
+
+                    if book:
+                        pk_map[old_pk] = book
+                        stats[f'books_{action}'] += 1
                 except Exception as e:
                     stats['errors'].append(f'کتاب: {str(e)}')
 
             for member_data in data.get('members', []):
                 try:
-                    result = process_member(member_data, mode)
-                    stats[f'members_{result}'] += 1
+                    fields = member_data.get('fields', {})
+                    old_pk = member_data.get('pk')
+
+                    member, action = process_member_safe(fields, mode)
+                    if member:
+                        member_pk_map[old_pk] = member
+                        stats[f'members_{action}'] += 1
                 except Exception as e:
                     stats['errors'].append(f'عضو: {str(e)}')
 
             for loan_data in data.get('loans', []):
                 try:
-                    result = process_loan(loan_data, mode)
+                    fields = loan_data.get('fields', {})
+                    old_book_pk = fields.get('book')
+                    old_member_pk = fields.get('member')
+
+                    if old_book_pk in pk_map:
+                        fields['book'] = pk_map[old_book_pk].pk
+                    if old_member_pk in member_pk_map:
+                        fields['member'] = member_pk_map[old_member_pk].pk
+
+                    result = process_loan(fields, mode)
                     stats[f'loans_{result}'] += 1
                 except Exception as e:
                     stats['errors'].append(f'امانت: {str(e)}')
 
         # پیام نتیجه
         message = (
-            f"کتاب‌ها: {stats['books_created']} جدید، {stats['books_updated']} ویرایش، {stats['books_skipped']} نادیده | "
+            f"کتاب‌ها: {stats['books_created']} جدید، {stats['books_updated']} ویرایش | "
             f"اعضا: {stats['members_created']} جدید، {stats['members_updated']} ویرایش | "
             f"امانت‌ها: {stats['loans_created']} جدید | "
             f"عکس‌ها: {stats['covers_saved']} ذخیره شد"
@@ -265,19 +426,38 @@ def backup_import(request):
     except zipfile.BadZipFile:
         return Response({'error': 'فایل ZIP نامعتبر است'}, status=400)
     except json.JSONDecodeError as e:
-        return Response({'error': f'فایل JSON نامعتبر است: {str(e)}'}, status=400)
+        return Response({'error': f'JSON نامعتبر: {str(e)}'}, status=400)
     except Exception as e:
         import traceback
         traceback.print_exc()
         return Response({'error': str(e)}, status=500)
 
 
-def process_book(book_data, mode):
-    """پردازش یک کتاب"""
-    fields = book_data.get('fields', {})
-    isbn = fields.get('isbn')
-    pk = book_data.get('pk')
-    nbn = fields.get('national_biblio_number')
+def save_book_cover(book, filename, img_data, stats):
+    """ذخیره عکس جلد کتاب"""
+    try:
+        if book.cover_image:
+            try:
+                book.cover_image.delete(save=False)
+            except:
+                pass
+
+        book.cover_image.save(filename, ContentFile(img_data), save=True)
+        stats['covers_saved'] += 1
+        print(f"✅ عکس ذخیره شد: {filename} → کتاب {book.pk} ({book.title[:30]})")
+        return True
+    except Exception as e:
+        stats['errors'].append(f'عکس {filename}: {str(e)}')
+        print(f"❌ خطا در عکس {filename}: {e}")
+        return False
+
+
+def process_book_safe(clean_fields, mode):
+    """پردازش کتاب با فیلدهای پاکسازی‌شده - با حفظ داده‌های موجود"""
+    isbn = clean_fields.get('isbn')
+    nbn = clean_fields.get('national_biblio_number')
+    title = clean_fields.get('title', '')
+    author = clean_fields.get('author', '')
 
     # بررسی تکراری
     existing = None
@@ -286,29 +466,55 @@ def process_book(book_data, mode):
             existing = Book.objects.filter(isbn=isbn).first()
         if not existing and nbn:
             existing = Book.objects.filter(national_biblio_number=nbn).first()
-        if not existing and pk:
-            existing = Book.objects.filter(pk=pk).first()
+        if not existing and title:
+            existing = Book.objects.filter(title=title, author=author).first()
 
     if existing:
-        # به‌روزرسانی (بدون تغییر cover_image)
-        for key, value in fields.items():
+        # ✅ به‌روزرسانی: فقط فیلدهایی که مقدار دارند
+        for key, value in clean_fields.items():
             if hasattr(existing, key) and key not in ['id', 'created_at', 'cover_image', 'qr_code']:
+                # ✅ اگر مقدار جدید خالی است، فیلد قبلی را دست نزن
+                if value is None or (isinstance(value, str) and value.strip() == ''):
+                    continue  # ← این خط حیاتی است
+
+                # ✅ اگر مقدار جدید = مقدار قبلی، نیازی به تغییر نیست
+                old_value = getattr(existing, key, None)
+                if old_value == value:
+                    continue
+
                 setattr(existing, key, value)
+
         existing.save()
-        return 'updated'
+        return existing, 'updated'
     else:
         # ایجاد جدید
-        allowed = {k: v for k, v in fields.items() if hasattr(Book, k) and k not in ['id']}
-        Book.objects.create(**allowed)
-        return 'created'
+        allowed = {}
+        for k, v in clean_fields.items():
+            if hasattr(Book, k) and k not in ['id', 'cover_image', 'qr_code']:
+                allowed[k] = v
+
+        book = Book.objects.create(**allowed)
+        print(f"🆕 کتاب جدید: {book.pk} - {book.title[:40]}")
+        return book, 'created'
 
 
-def process_member(member_data, mode):
-    """پردازش یک عضو"""
-    fields = member_data.get('fields', {})
-    national_id = fields.get('national_id')
-    member_code = fields.get('member_code')
-    pk = member_data.get('pk')
+def process_member_safe(fields, mode):
+    """پردازش عضو - با حفظ داده‌های موجود"""
+    clean_fields = {
+        'first_name': safe_str(fields.get('first_name')),
+        'last_name': safe_str(fields.get('last_name')),
+        'national_id': safe_str(fields.get('national_id')),
+        'phone': safe_str(fields.get('phone')),
+        'address': safe_str(fields.get('address')),
+        'member_code': safe_str(fields.get('member_code')),
+        'join_date': fields.get('join_date'),
+        'is_active': safe_bool(fields.get('is_active'), True),
+        'max_loans': safe_int(fields.get('max_loans'), 3),
+        'notes': safe_str(fields.get('notes')),
+    }
+
+    national_id = clean_fields.get('national_id')
+    member_code = clean_fields.get('member_code')
 
     existing = None
     if mode == 'merge':
@@ -316,80 +522,52 @@ def process_member(member_data, mode):
             existing = Member.objects.filter(national_id=national_id).first()
         if not existing and member_code:
             existing = Member.objects.filter(member_code=member_code).first()
-        if not existing and pk:
-            existing = Member.objects.filter(pk=pk).first()
 
     if existing:
-        for key, value in fields.items():
+        # ✅ فقط فیلدهای پر را به‌روزرسانی کن
+        for key, value in clean_fields.items():
             if hasattr(existing, key) and key not in ['id', 'created_at']:
+                if value is None or (isinstance(value, str) and value.strip() == ''):
+                    continue
+
+                old_value = getattr(existing, key, None)
+                if old_value == value:
+                    continue
+
                 setattr(existing, key, value)
+
         existing.save()
-        return 'updated'
+        return existing, 'updated'
     else:
-        allowed = {k: v for k, v in fields.items() if hasattr(Member, k) and k not in ['id']}
-        Member.objects.create(**allowed)
-        return 'created'
+        allowed = {k: v for k, v in clean_fields.items() if hasattr(Member, k) and k not in ['id']}
+        member = Member.objects.create(**allowed)
+        return member, 'created'
 
 
-def process_loan(loan_data, mode):
-    """پردازش یک امانت"""
-    fields = loan_data.get('fields', {})
-    pk = loan_data.get('pk')
+def process_loan(fields, mode):
+    """پردازش امانت"""
+    book_id = fields.get('book')
+    member_id = fields.get('member')
+    loan_date = fields.get('loan_date')
 
-    existing = None
-    if mode == 'merge' and pk:
-        existing = Loan.objects.filter(pk=pk).first()
+    if mode == 'merge':
+        existing = Loan.objects.filter(
+            book_id=book_id,
+            member_id=member_id,
+            loan_date=loan_date
+        ).first()
+        if existing:
+            return 'skipped'
 
-    if existing:
-        return 'skipped'
-    else:
-        allowed = {k: v for k, v in fields.items() if hasattr(Loan, k) and k not in ['id']}
+    allowed = {k: v for k, v in fields.items() if hasattr(Loan, k) and k not in ['id']}
+    try:
         Loan.objects.create(**allowed)
         return 'created'
+    except:
+        return 'skipped'
 
 
-def find_book_by_cover_name(filename, data):
-    """پیدا کردن کتاب بر اساس نام فایل عکس"""
-    # الگو: book_22.png یا cover_xxx.jpg
-    import re
-
-    # استخراج ID از نام فایل
-    match = re.search(r'book_(\d+)', filename)
-    if match:
-        book_id = int(match.group(1))
-        return Book.objects.filter(pk=book_id).first()
-
-    # جستجو در داده‌ها
-    for book_data in data.get('books', []):
-        fields = book_data.get('fields', {})
-        cover_image = fields.get('cover_image', '')
-        if cover_image and os.path.basename(cover_image) == filename:
-            pk = book_data.get('pk')
-            return Book.objects.filter(pk=pk).first()
-
-    return None
-
-
-def find_book_by_qr_name(filename, data):
-    """پیدا کردن کتاب بر اساس نام فایل QR"""
-    import re
-
-    match = re.search(r'book_(\d+)', filename)
-    if match:
-        book_id = int(match.group(1))
-        return Book.objects.filter(pk=book_id).first()
-
-    for book_data in data.get('books', []):
-        fields = book_data.get('fields', {})
-        qr_code = fields.get('qr_code', '')
-        if qr_code and os.path.basename(qr_code) == filename:
-            pk = book_data.get('pk')
-            return Book.objects.filter(pk=pk).first()
-
-    return None
-
-
-# ==================== Backup Merge (ادغام چند بکاپ) ====================
+# ==================== Backup Merge ====================
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -399,14 +577,12 @@ def backup_merge(request):
         return Response({'error': 'فایل‌ها ارسال نشدند'}, status=400)
 
     files = request.FILES.getlist('files')
-
     if not files:
         return Response({'error': 'هیچ فایلی ارسال نشده'}, status=400)
 
     total_stats = {
         'books_created': 0,
         'books_updated': 0,
-        'books_skipped': 0,
         'members_created': 0,
         'members_updated': 0,
         'covers_saved': 0,
@@ -419,72 +595,49 @@ def backup_merge(request):
         try:
             file_content = f.read()
 
-            # تشخیص نوع
             if f.name.endswith('.zip'):
                 with zipfile.ZipFile(BytesIO(file_content), 'r') as zipf:
                     with zipf.open('data.json') as json_file:
                         data = json.loads(json_file.read().decode('utf-8'))
 
-                    # پردازش کتاب‌ها
-                    for book_data in data.get('books', []):
-                        try:
-                            result = process_book(book_data, 'merge')
-                            total_stats[f'books_{result}'] += 1
-                        except Exception as e:
-                            total_stats['errors'].append(f'{f.name}: {str(e)}')
+                    pk_map = {}
+                    cover_files = {}
 
-                    # پردازش اعضا
-                    for member_data in data.get('members', []):
-                        try:
-                            result = process_member(member_data, 'merge')
-                            total_stats[f'members_{result}'] += 1
-                        except Exception as e:
-                            total_stats['errors'].append(f'{f.name}: {str(e)}')
-
-                    # پردازش عکس‌ها
                     for name in zipf.namelist():
                         if name.startswith('covers/') and not name.endswith('/'):
-                            try:
-                                filename = os.path.basename(name)
-                                book = find_book_by_cover_name(filename, data)
-                                if book:
-                                    with zipf.open(name) as img_file:
-                                        img_data = img_file.read()
-                                        book.cover_image.save(filename, ContentFile(img_data), save=True)
-                                        total_stats['covers_saved'] += 1
-                            except:
-                                pass
+                            with zipf.open(name) as img:
+                                cover_files[os.path.basename(name)] = img.read()
+
+                    for book_data in data.get('books', []):
+                        fields = book_data.get('fields', {})
+                        old_pk = book_data.get('pk')
+
+                        clean_fields = clean_book_fields(fields)
+                        book, action = process_book_safe(clean_fields, 'merge')
+
+                        if book:
+                            pk_map[old_pk] = book
+                            total_stats[f'books_{action}'] += 1
+
+                            cover_field = fields.get('cover_image', '')
+                            if cover_field:
+                                filename = os.path.basename(cover_field)
+                                if filename in cover_files:
+                                    save_book_cover(book, filename, cover_files[filename], total_stats)
+
+                    for member_data in data.get('members', []):
+                        fields = member_data.get('fields', {})
+                        member, action = process_member_safe(fields, 'merge')
+                        if member:
+                            total_stats[f'members_{action}'] += 1
 
                     total_stats['files_processed'] += 1
-            else:
-                # JSON ساده
-                data = json.loads(file_content.decode('utf-8'))
-
-                for book_data in data.get('books', []):
-                    try:
-                        result = process_book(book_data, 'merge')
-                        total_stats[f'books_{result}'] += 1
-                    except Exception as e:
-                        total_stats['errors'].append(f'{f.name}: {str(e)}')
-
-                for member_data in data.get('members', []):
-                    try:
-                        result = process_member(member_data, 'merge')
-                        total_stats[f'members_{result}'] += 1
-                    except Exception as e:
-                        total_stats['errors'].append(f'{f.name}: {str(e)}')
-
-                total_stats['files_processed'] += 1
 
         except Exception as e:
             total_stats['files_failed'] += 1
             total_stats['errors'].append(f'{f.name}: {str(e)}')
 
-    message = (
-        f"پردازش {total_stats['files_processed']} فایل انجام شد. "
-        f"کتاب: {total_stats['books_created']} جدید، {total_stats['books_updated']} ویرایش. "
-        f"عکس: {total_stats['covers_saved']} ذخیره شد."
-    )
+    message = f"پردازش {total_stats['files_processed']} فایل. کتاب: {total_stats['books_created']} جدید، {total_stats['books_updated']} ویرایش. عکس: {total_stats['covers_saved']}"
 
     return Response({
         'success': True,
@@ -498,14 +651,12 @@ def backup_merge(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def backup_to_drive(request):
-    """آپلود بکاپ به Google Drive"""
+    """آپلود به Google Drive"""
     try:
         from .cloud_backup import upload_to_drive
 
-        # ساخت ZIP
         response = backup_export(request)
 
-        # ذخیره در فایل موقت
         with tempfile.NamedTemporaryFile(mode='wb', suffix='.zip', delete=False) as f:
             f.write(response.content)
             temp_path = f.name
@@ -525,8 +676,6 @@ def backup_to_drive(request):
                 os.unlink(temp_path)
 
     except ImportError:
-        return Response({
-            'error': 'کتابخانه Google Drive نصب نیست'
-        }, status=500)
+        return Response({'error': 'Google Drive نصب نیست'}, status=500)
     except Exception as e:
         return Response({'error': str(e)}, status=500)

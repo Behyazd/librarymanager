@@ -437,34 +437,45 @@ async function submitSingleBook(event) {
             body: formData,
         });
 
-        if (response.redirected || response.ok) {
-            allRecords.splice(currentRecordIndex, 1);
+        // ✅ بررسی وضعیت پاسخ
+        if (response.status === 200 || response.status === 302) {
+            // بررسی URL نهایی
+            const finalUrl = response.url;
 
-            if (allRecords.length === 0) {
-                statusDiv.innerHTML = '<span style="color: green;">✅ همه رکوردها ذخیره شدند! حالا به لیست کتاب‌ها بروید.</span>';
-                document.getElementById('records-nav').style.display = 'none';
-                clearForm();
+            // اگر به صفحه کتاب رفته، یعنی موفق
+            if (finalUrl.includes('/books/') && !finalUrl.includes('/add/')) {
+                allRecords.splice(currentRecordIndex, 1);
 
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 1500);
-                return false;
+                if (allRecords.length === 0) {
+                    statusDiv.innerHTML = '<span style="color: green;">✅ همه رکوردها ذخیره شدند! حالا به لیست کتاب‌ها بروید.</span>';
+                    document.getElementById('records-nav').style.display = 'none';
+                    clearForm();
+
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1500);
+                    return false;
+                }
+
+                if (currentRecordIndex >= allRecords.length) {
+                    currentRecordIndex = allRecords.length - 1;
+                }
+
+                displayRecord(currentRecordIndex);
+                statusDiv.innerHTML = `<span style="color: green;">✅ کتاب ذخیره شد. ${allRecords.length} رکورد باقی مانده.</span>`;
+            } else {
+                // اگر در همان صفحه ماند، یعنی خطا
+                const text = await response.text();
+                statusDiv.innerHTML = `<span style="color: red;">❌ خطا در ذخیره. لطفاً صفحه را رفرش کنید.</span>`;
+                console.error('Response:', text);
             }
-
-            if (currentRecordIndex >= allRecords.length) {
-                currentRecordIndex = allRecords.length - 1;
-            }
-
-            displayRecord(currentRecordIndex);
-
-            statusDiv.innerHTML = `<span style="color: green;">✅ کتاب ذخیره شد. ${allRecords.length} رکورد باقی مانده.</span>`;
-
         } else {
-            const data = await response.json();
-            statusDiv.innerHTML = `<span style="color: red;">❌ خطا: ${data.error || 'خطا در ذخیره'}</span>`;
+            statusDiv.innerHTML = `<span style="color: red;">❌ خطای سرور: ${response.status}</span>`;
         }
 
     } catch (error) {
+        console.error('Error:', error);
+        // اگر خطای شبکه بود، به صورت معمولی submit کن
         form.submit();
     } finally {
         submitBtn.disabled = false;
